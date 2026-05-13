@@ -86,8 +86,8 @@ const surveyResponseSchema = new mongoose.Schema(
       type: [Number],
       required: true,
       validate: {
-        validator: (value) => Array.isArray(value) && value.length > 0,
-        message: "questionsAnswered must contain at least one answer."
+        validator: (value) => Array.isArray(value),
+        message: "questionsAnswered must be an array."
       }
     },
     submittedAt: {

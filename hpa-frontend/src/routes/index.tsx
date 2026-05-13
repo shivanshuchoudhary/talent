@@ -120,6 +120,12 @@ const ENTITY_OPTIONS = [
 const ASSESSMENT_DURATION_SECONDS = 7 * 60
 
 type ProfileErrors = Partial<Record<keyof UserData | 'otherEntity', string>>
+type SubmitPhase =
+  | 'idle'
+  | 'submitting'
+  | 'completed'
+  | 'timed_out'
+  | 'error'
 
 const surveyBackgroundStyle = {
   backgroundImage:
@@ -191,6 +197,10 @@ function formatCountdown(totalSeconds: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function getCompletionSubmitPhase(isCompleted: boolean): SubmitPhase {
+  return isCompleted ? 'completed' : 'timed_out'
+}
+
 function App() {
   const {
     currentQuestionId,
@@ -212,9 +222,7 @@ function App() {
   const [isCheckingCompletion, setIsCheckingCompletion] = useState(false)
   const [hasCompletedAssessment, setHasCompletedAssessment] = useState(false)
   /** This session only — after a successful POST from completing all questions */
-  const [submitPhase, setSubmitPhase] = useState<
-    'idle' | 'submitting' | 'thanks' | 'error'
-  >('idle')
+  const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
   const autoSubmitStartedRef = useRef(false)
   const answeredCount = answersArray.reduce(
     (count, answer) => (answer === undefined ? count : count + 1),
@@ -226,6 +234,8 @@ function App() {
   const visibleQuestions = questions.slice(currentPageStart, currentPageStart + 5)
   const isTimeUp = remainingSeconds <= 0
   const countdownLabel = formatCountdown(remainingSeconds)
+  const isFinalMessageVisible =
+    submitPhase === 'completed' || submitPhase === 'timed_out'
   const buildResultPayload = (): ResultData => {
     const answersMap = answersArray.reduce<Record<number, number>>(
       (acc, value, index) => {
@@ -447,7 +457,7 @@ function App() {
     if (isCheckingCompletion || hasCompletedAssessment) {
       return
     }
-    if (!isCompleted) {
+    if (!isCompleted && !isTimeUp) {
       return
     }
     if (autoSubmitStartedRef.current) {
@@ -463,10 +473,11 @@ function App() {
         userEmail: resultData.userData.email,
         answersCount: resultData.questionsAnswered.length,
         letterGrade: resultData.categoryResults.letterGrade,
+        timedOut: isTimeUp && !isCompleted,
       })
       const ok = await saveResultsToDatabase(resultData)
       if (ok) {
-        setSubmitPhase('thanks')
+        setSubmitPhase(getCompletionSubmitPhase(isCompleted))
       } else {
         setSubmitPhase('error')
         autoSubmitStartedRef.current = false
@@ -474,7 +485,7 @@ function App() {
     }
 
     void run()
-  }, [isCheckingCompletion, hasCompletedAssessment, isCompleted])
+  }, [isCheckingCompletion, hasCompletedAssessment, isCompleted, isTimeUp])
 
   const canGoNext = useMemo(() => {
     if (isTimeUp) {
@@ -746,16 +757,20 @@ function App() {
 
           {!isCheckingCompletion &&
           !hasCompletedAssessment &&
-          submitPhase === 'thanks' ? (
-            <section className="rounded-xl border border-default bg-card/78 p-8 shadow-xs backdrop-blur-sm">
+          isFinalMessageVisible ? (
+            <section className="animate-in fade-in zoom-in-95 duration-500 rounded-xl border border-default bg-card/78 p-8 shadow-xs backdrop-blur-sm">
               <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Thank you
+                {submitPhase === 'timed_out' ? 'Time is up' : 'Thank you'}
               </p>
               <h2 className="text-2xl font-semibold">
-                Thanks for completing the survey
+                {submitPhase === 'timed_out'
+                  ? 'Time is up. Thank you for participating.'
+                  : 'Thank you for participating in the survey.'}
               </h2>
               <p className="mt-3 text-sm text-muted-foreground">
-                Your responses have been saved. You can sign out when you are ready.
+                {submitPhase === 'timed_out'
+                  ? 'Your progress has been saved to the best of what you completed before the timer ended.'
+                  : 'Your responses have been saved successfully.'}
               </p>
               <Button className="mt-6" variant="default" onClick={() => void handleSignOut()}>
                 Sign out
@@ -765,7 +780,7 @@ function App() {
 
           {!isCheckingCompletion &&
           !hasCompletedAssessment &&
-          submitPhase !== 'thanks' ? (
+          !isFinalMessageVisible ? (
             <>
           <div className="mb-4 flex flex-col gap-3 rounded-2xl bg-white/62 p-4 backdrop-blur-sm sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -797,7 +812,7 @@ function App() {
               </div>
             </div>
 
-            {submitPhase === 'error' && isCompleted ? (
+            {submitPhase === 'error' ? (
               <div className="w-full rounded-md border border-destructive/50 bg-card/82 p-6 backdrop-blur-sm">
                 <p className="font-medium text-destructive">
                   We could not save your responses.
@@ -812,7 +827,7 @@ function App() {
                     void (async () => {
                       const ok = await saveResultsToDatabase(buildResultPayload())
                       if (ok) {
-                        setSubmitPhase('thanks')
+                        setSubmitPhase(getCompletionSubmitPhase(isCompleted))
                         autoSubmitStartedRef.current = true
                       } else {
                         setSubmitPhase('error')
@@ -823,9 +838,13 @@ function App() {
                   Try again
                 </Button>
               </div>
-            ) : isCompleted ? (
+            ) : submitPhase === 'submitting' ? (
               <div className="w-full rounded-md border border-default bg-card/82 p-8 text-center backdrop-blur-sm">
-                <p className="text-base font-medium">Saving your responses…</p>
+                <p className="text-base font-medium">
+                  {isTimeUp && !isCompleted
+                    ? 'Time is up. Saving your responses…'
+                    : 'Saving your responses…'}
+                </p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   Please wait a moment.
                 </p>
@@ -879,12 +898,6 @@ function App() {
                 </div>
               </div>
             )}
-
-            {isTimeUp && !isCompleted ? (
-              <p className="mt-4 text-sm font-semibold text-destructive">
-                Time is up. Please answer all questions before your responses can be saved.
-              </p>
-            ) : null}
           </section>
             </>
           ) : null}
