@@ -107,9 +107,13 @@ router.post("/users/session", async (req, res) => {
 
 router.post("/responses", async (req, res) => {
   const userId = req.body?.userId;
+  const isCompleted = Boolean(req.body?.isCompleted);
+  const timedOut = Boolean(req.body?.timedOut);
+
   console.log("[Survey][POST] /responses payload summary:", {
     userId: userId ?? null,
-    isCompleted: Boolean(req.body?.isCompleted),
+    isCompleted,
+    timedOut,
     answersCount: Array.isArray(req.body?.questionsAnswered) ? req.body.questionsAnswered.length : 0,
     categoryCount: Array.isArray(req.body?.categoryResults?.categories) ? req.body.categoryResults.categories.length : 0
   });
@@ -127,7 +131,8 @@ router.post("/responses", async (req, res) => {
         userId,
         categoryResults: req.body?.categoryResults,
         questionsAnswered: req.body?.questionsAnswered,
-        isCompleted: Boolean(req.body?.isCompleted),
+        isCompleted,
+        timedOut,
         submittedAt: new Date()
       },
       {
@@ -141,7 +146,8 @@ router.post("/responses", async (req, res) => {
     await User.findByIdAndUpdate(
       userId,
       {
-        hasCompletedQuestions: Boolean(req.body?.isCompleted)
+        hasCompletedQuestions: isCompleted,
+        hasTimedOut: timedOut
       },
       {
         runValidators: true
@@ -152,7 +158,8 @@ router.post("/responses", async (req, res) => {
       id: savedResponse._id?.toString?.() ?? null,
       createdAt: savedResponse.createdAt ?? null,
       userId: savedResponse.userId?.toString?.() ?? null,
-      isCompleted: savedResponse.isCompleted
+      isCompleted: savedResponse.isCompleted,
+      timedOut: savedResponse.timedOut
     });
 
     return res.status(201).json({
@@ -217,7 +224,7 @@ router.get("/responses/status", async (req, res) => {
   try {
     const existingUser = await User.findOne({
       email: email.toLowerCase()
-    }).select("_id email hasCompletedQuestions");
+    }).select("_id email hasCompletedQuestions hasTimedOut");
 
     if (!existingUser) {
       return res.status(200).json({
@@ -231,16 +238,19 @@ router.get("/responses/status", async (req, res) => {
       userId: existingUser._id
     })
       .sort({ createdAt: -1 })
-      .select("_id createdAt userId isCompleted questionsAnswered");
+      .select("_id createdAt userId isCompleted timedOut questionsAnswered");
 
     const hasCompleted = Boolean(existingUser.hasCompletedQuestions);
+    const hasTimedOut = Boolean(existingUser.hasTimedOut);
     console.log("[Survey][GET] /responses/status checked:", {
       email: email.toLowerCase(),
-      hasCompleted
+      hasCompleted,
+      hasTimedOut
     });
 
     return res.status(200).json({
       hasCompleted,
+      hasTimedOut,
       user: {
         id: existingUser._id,
         email: existingUser.email
@@ -251,6 +261,7 @@ router.get("/responses/status", async (req, res) => {
             createdAt: existingResponse.createdAt,
             userId: existingResponse.userId ?? null,
             isCompleted: existingResponse.isCompleted,
+            timedOut: existingResponse.timedOut,
             questionsAnswered: existingResponse.questionsAnswered ?? []
           }
         : null

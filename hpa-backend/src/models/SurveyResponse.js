@@ -85,6 +85,11 @@ const surveyResponseSchema = new mongoose.Schema(
       required: true,
       default: false
     },
+    timedOut: {
+      type: Boolean,
+      required: true,
+      default: false
+    },
     submittedAt: {
       type: Date,
       default: Date.now

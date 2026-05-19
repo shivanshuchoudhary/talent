@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       required: true,
       default: false
+    },
+    hasTimedOut: {
+      type: Boolean,
+      required: true,
+      default: false
     }
   },
   {

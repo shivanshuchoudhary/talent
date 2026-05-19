@@ -142,6 +142,11 @@ function calculateCategoryResultsFromAnsweredOnly(
   }
 }
 
+interface SurveySubmitStatus {
+  isCompleted: boolean
+  timedOut: boolean
+}
+
 interface ResultData {
   userId: string
   categoryResults: CategoryResult
@@ -150,6 +155,7 @@ interface ResultData {
     answer: number
   }[]
   isCompleted: boolean
+  timedOut: boolean
 }
 
 const API_BASE_URL = getApiBaseUrl()
@@ -340,6 +346,7 @@ function App() {
   const [isRestoringSession, setIsRestoringSession] = useState(false)
   const [isCheckingCompletion, setIsCheckingCompletion] = useState(false)
   const [hasCompletedAssessment, setHasCompletedAssessment] = useState(false)
+  const [hasTimedOutAssessment, setHasTimedOutAssessment] = useState(false)
   const [activeUserId, setActiveUserId] = useState('')
   /** This session only — after a successful POST from completing all questions */
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
@@ -356,7 +363,7 @@ function App() {
   const countdownLabel = formatCountdown(remainingSeconds)
   const isFinalMessageVisible =
     submitPhase === 'completed' || submitPhase === 'timed_out'
-  const buildResultPayload = (isCompletedState: boolean): ResultData | null => {
+  const buildResultPayload = (status: SurveySubmitStatus): ResultData | null => {
     if (!activeUserId) {
       return null
     }
@@ -364,7 +371,8 @@ function App() {
     if (questionsAnswered.length === 0) {
       return null
     }
-    const categoryResults = isCompletedState
+    const allQuestionsAnswered = answeredCount === questions.length
+    const categoryResults = allQuestionsAnswered
       ? calculateCategoryResults(buildAnswersMapFromArray(answersArray))
       : calculateCategoryResultsFromAnsweredOnly(answersArray)
     if (categoryResults.categories.length === 0) {
@@ -374,7 +382,8 @@ function App() {
       userId: activeUserId,
       categoryResults,
       questionsAnswered,
-      isCompleted: isCompletedState,
+      isCompleted: status.isCompleted,
+      timedOut: status.timedOut,
     }
   }
 
@@ -463,23 +472,39 @@ function App() {
         | undefined,
     )
     const hasSavedProgress = restoredAnswers.some((answer) => answer !== undefined)
+    const savedAnswerCount = hasSavedProgress
+      ? restoredAnswers.reduce(
+          (count, answer) => (answer === undefined ? count : count + 1),
+          0,
+        )
+      : 0
+    const legacyTimedOut =
+      Boolean(backendResponse?.isCompleted) &&
+      !Boolean(backendResponse?.timedOut) &&
+      savedAnswerCount > 0 &&
+      savedAnswerCount < questions.length
+    const timedOutFromBackend =
+      Boolean(backendUser.hasTimedOut) ||
+      Boolean(backendResponse?.timedOut) ||
+      legacyTimedOut
     const completedFromBackend =
-      Boolean(backendUser.hasCompletedQuestions) ||
-      Boolean(backendResponse?.isCompleted)
+      (Boolean(backendUser.hasCompletedQuestions) ||
+        Boolean(backendResponse?.isCompleted)) &&
+      !timedOutFromBackend
+    const surveyClosed = completedFromBackend || timedOutFromBackend
 
-    if (hasSavedProgress) {
+    if (hasSavedProgress && !surveyClosed) {
       hydrateAnswers(restoredAnswers)
       setRemainingSeconds(calculateResumeDurationSeconds(restoredAnswers))
-      setIsTimerActive(!completedFromBackend)
-      setTimerRunId((v) => v + 1)
-    } else {
+    } else if (!surveyClosed) {
       resetAssessment()
       setRemainingSeconds(ASSESSMENT_DURATION_SECONDS)
-      setIsTimerActive(false)
     }
 
+    setIsTimerActive(false)
     setHasCompletedAssessment(completedFromBackend)
-    setShowInstructions(!hasSavedProgress && !completedFromBackend)
+    setHasTimedOutAssessment(timedOutFromBackend)
+    setShowInstructions(!surveyClosed)
     setShowProfileForm(false)
     setSubmitPhase('idle')
     autoSubmitStartedRef.current = false
@@ -622,10 +647,14 @@ function App() {
     }
   }
 
-  const handleStartSurvey = () => {
+  const handleStartOrContinueSurvey = () => {
     setShowInstructions(false)
-    resetAssessment()
-    setRemainingSeconds(ASSESSMENT_DURATION_SECONDS)
+    if (answeredCount === 0) {
+      resetAssessment()
+      setRemainingSeconds(ASSESSMENT_DURATION_SECONDS)
+    } else {
+      setRemainingSeconds(calculateResumeDurationSeconds(answersArray))
+    }
     setIsTimerActive(true)
     setTimerRunId((v) => v + 1)
   }
@@ -643,6 +672,7 @@ function App() {
       resetProfileForm()
       setShowProfileForm(false)
       setShowInstructions(false)
+      setHasTimedOutAssessment(false)
       setSubmitPhase('idle')
       autoSubmitStartedRef.current = false
     }
@@ -705,7 +735,12 @@ function App() {
   }, [isTimerActive, timerRunId])
 
   useEffect(() => {
-    if (isCheckingCompletion || hasCompletedAssessment || showInstructions) {
+    if (
+      isCheckingCompletion ||
+      hasCompletedAssessment ||
+      hasTimedOutAssessment ||
+      showInstructions
+    ) {
       return
     }
     if (!isCompleted && !isTimeUp) {
@@ -718,7 +753,11 @@ function App() {
     setSubmitPhase('submitting')
 
     const run = async () => {
-      const resultData = buildResultPayload(isCompleted)
+      const submitStatus: SurveySubmitStatus = {
+        isCompleted,
+        timedOut: isTimeUp && !isCompleted,
+      }
+      const resultData = buildResultPayload(submitStatus)
       if (!resultData) {
         setSubmitPhase('error')
         autoSubmitStartedRef.current = false
@@ -729,13 +768,16 @@ function App() {
         userId: resultData.userId,
         answersCount: resultData.questionsAnswered.length,
         letterGrade: resultData.categoryResults.letterGrade,
-        timedOut: isTimeUp && !isCompleted,
+        ...submitStatus,
       })
       const ok = await saveResultsToDatabase(resultData)
       if (ok) {
         setIsTimerActive(false)
-        if (isCompleted) {
+        if (submitStatus.isCompleted) {
           setHasCompletedAssessment(true)
+        }
+        if (submitStatus.timedOut) {
+          setHasTimedOutAssessment(true)
         }
         setSubmitPhase(getCompletionSubmitPhase(isCompleted))
       } else {
@@ -745,10 +787,16 @@ function App() {
     }
 
     void run()
-  }, [isCheckingCompletion, hasCompletedAssessment, isCompleted, isTimeUp])
+  }, [
+    isCheckingCompletion,
+    hasCompletedAssessment,
+    hasTimedOutAssessment,
+    isCompleted,
+    isTimeUp,
+  ])
 
   const handleSaveAndSignOut = async () => {
-    const resultData = buildResultPayload(false)
+    const resultData = buildResultPayload({ isCompleted: false, timedOut: false })
     if (!resultData) {
       await handleSignOut()
       return
@@ -886,8 +934,12 @@ function App() {
                 </div>
 
                 <div className="mt-8 text-center">
-                  <Button className="w-full sm:w-auto" size="lg" onClick={handleStartSurvey}>
-                    Start Survey
+                  <Button
+                    className="w-full sm:w-auto"
+                    size="lg"
+                    onClick={handleStartOrContinueSurvey}
+                  >
+                    {answeredCount > 0 ? 'Continue Survey' : 'Start Survey'}
                   </Button>
                 </div>
               </div>
@@ -910,7 +962,21 @@ function App() {
             <section className="rounded-xl border border-default bg-card/78 p-6 shadow-xs backdrop-blur-sm">
               <h2 className="text-xl font-semibold">You already finished the assessment.</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                This account has already submitted a response.
+                You completed all questions before time ran out. This account cannot take the
+                survey again.
+              </p>
+              <Button className="mt-4" variant="outline" onClick={() => void handleSignOut()}>
+                Log out
+              </Button>
+            </section>
+          ) : null}
+
+          {!isCheckingCompletion && hasTimedOutAssessment ? (
+            <section className="rounded-xl border border-default bg-card/78 p-6 shadow-xs backdrop-blur-sm">
+              <h2 className="text-xl font-semibold">Your assessment time has ended.</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                The timer ran out before you finished all questions. Your partial responses were
+                saved, but you cannot continue this attempt.
               </p>
               <Button className="mt-4" variant="outline" onClick={() => void handleSignOut()}>
                 Log out
@@ -920,6 +986,7 @@ function App() {
 
           {!isCheckingCompletion &&
             !hasCompletedAssessment &&
+            !hasTimedOutAssessment &&
             isFinalMessageVisible ? (
             <section className="animate-in fade-in zoom-in-95 duration-500 rounded-xl border border-default bg-card/78 p-8 shadow-xs backdrop-blur-sm">
               <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -943,6 +1010,7 @@ function App() {
 
           {!isCheckingCompletion &&
             !hasCompletedAssessment &&
+            !hasTimedOutAssessment &&
             !isFinalMessageVisible ? (
             <>
               <div className="mb-4 flex flex-col gap-3 rounded-2xl bg-white/62 p-3 backdrop-blur-sm sm:p-4 sm:flex-row sm:items-start sm:justify-between">
@@ -992,7 +1060,10 @@ function App() {
                       onClick={() => {
                         setSubmitPhase('submitting')
                         void (async () => {
-                          const resultData = buildResultPayload(isCompleted)
+                          const resultData = buildResultPayload({
+                            isCompleted,
+                            timedOut: false,
+                          })
                           if (!resultData) {
                             setSubmitPhase('error')
                             autoSubmitStartedRef.current = false
