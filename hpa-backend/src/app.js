@@ -1,12 +1,21 @@
 const express = require("express");
 const cors = require("cors");
 
-
 const surveyRoutes = require("./routes/surveyRoutes");
+
+/** Browser origin allowed to call this API (production SPA). Override locally via CORS_ORIGIN if needed. */
+const FRONTEND_ORIGIN =
+  process.env.CORS_ORIGIN?.trim() || "https://sobhaascend.sobhaapps.com";
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: FRONTEND_ORIGIN,
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 
 app.use((req, _res, next) => {
