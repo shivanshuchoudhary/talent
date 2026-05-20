@@ -3,6 +3,12 @@ const dotenv = require("dotenv");
 // Must run before any module reads process.env (e.g. azureAuth).
 dotenv.config();
 
+// jose v5+ requires globalThis.crypto (Node >=19 native, older needs polyfill).
+if (!globalThis.crypto) {
+  const { webcrypto } = require("node:crypto");
+  globalThis.crypto = webcrypto;
+}
+
 const app = require("./app");
 const connectDB = require("./config/db");
 const { runStartupMigrations } = require("./config/migrate");
