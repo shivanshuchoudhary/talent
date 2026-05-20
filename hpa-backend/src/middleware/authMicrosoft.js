@@ -16,14 +16,37 @@ function loadJose() {
   return joseModulePromise;
 }
 
-let jwks;
+const jwksByTenant = new Map();
 
-async function getJwks() {
+async function getJwksForTenant(tenantId) {
   const { createRemoteJWKSet } = await loadJose();
-  if (!jwks && azureAuth.jwksUri) {
-    jwks = createRemoteJWKSet(new URL(azureAuth.jwksUri));
+  if (!tenantId) {
+    return null;
   }
-  return jwks;
+  if (!jwksByTenant.has(tenantId)) {
+    const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
+    jwksByTenant.set(tenantId, createRemoteJWKSet(new URL(jwksUri)));
+  }
+  return jwksByTenant.get(tenantId);
+}
+
+function getIssuersForTenant(tenantId) {
+  return [
+    `https://login.microsoftonline.com/${tenantId}/v2.0`,
+    `https://login.microsoftonline.com/${tenantId}/`,
+    `https://sts.windows.net/${tenantId}/`
+  ];
+}
+
+function audienceMatches(payload, clientId) {
+  const aud = payload.aud;
+  if (typeof aud === "string") {
+    return aud === clientId;
+  }
+  if (Array.isArray(aud)) {
+    return aud.includes(clientId);
+  }
+  return false;
 }
 
 function extractEmail(payload) {
@@ -54,12 +77,78 @@ function isEmailDomainAllowed(email) {
   return azureAuth.allowedEmailDomains.includes(domain);
 }
 
-async function verifyBearerToken(token) {
-  const { jwtVerify } = await loadJose();
-  const { payload } = await jwtVerify(token, await getJwks(), {
-    issuer: azureAuth.issuer,
-    audience: azureAuth.clientId
+function logTokenDebug(unverified, reason) {
+  console.error("[Auth] Token debug:", {
+    reason,
+    iss: unverified?.iss ?? null,
+    aud: unverified?.aud ?? null,
+    azp: unverified?.azp ?? null,
+    tid: unverified?.tid ?? null,
+    exp: unverified?.exp ?? null,
+    configuredTenantId: azureAuth.tenantId || null,
+    configuredClientId: azureAuth.clientId || null
   });
+}
+
+async function verifyBearerToken(token) {
+  const { jwtVerify, decodeJwt } = await loadJose();
+  const clientId = azureAuth.clientId;
+
+  let unverified;
+  try {
+    unverified = decodeJwt(token);
+  } catch (error) {
+    throw new Error("Malformed token.");
+  }
+
+  const tokenTenantId =
+    typeof unverified.tid === "string" && unverified.tid.trim()
+      ? unverified.tid.trim()
+      : azureAuth.tenantId;
+
+  if (!tokenTenantId) {
+    throw new Error("Token is missing tenant id (tid).");
+  }
+
+  if (azureAuth.tenantId && tokenTenantId !== azureAuth.tenantId) {
+    logTokenDebug(unverified, "tenant mismatch");
+    throw new Error(
+      "Token tenant does not match AZURE_TENANT_ID. Use the same tenant id as VITE_MSAL_TENANT_ID on the backend."
+    );
+  }
+
+  const keySet = await getJwksForTenant(tokenTenantId);
+  if (!keySet) {
+    throw new Error("Could not load Microsoft signing keys.");
+  }
+
+  const verifyOptions = {
+    issuer: getIssuersForTenant(tokenTenantId),
+    clockTolerance: "60s"
+  };
+
+  let payload;
+  try {
+    ({ payload } = await jwtVerify(token, keySet, {
+      ...verifyOptions,
+      audience: clientId
+    }));
+  } catch (firstError) {
+    try {
+      ({ payload } = await jwtVerify(token, keySet, verifyOptions));
+    } catch (secondError) {
+      logTokenDebug(unverified, secondError.message);
+      throw secondError;
+    }
+
+    const azp = typeof payload.azp === "string" ? payload.azp : "";
+    if (!audienceMatches(payload, clientId) && azp !== clientId) {
+      logTokenDebug(unverified, "audience mismatch");
+      throw new Error(
+        "Token audience mismatch. Set AZURE_CLIENT_ID to the same value as VITE_MSAL_CLIENT_ID."
+      );
+    }
+  }
 
   const email = extractEmail(payload);
   if (!email) {
@@ -120,7 +209,7 @@ async function requireMicrosoftAuth(req, res, next) {
       message: error.message
     });
     return res.status(401).json({
-      message: "Invalid or expired token.",
+      message: error.message || "Invalid or expired token.",
       error: error.message
     });
   }

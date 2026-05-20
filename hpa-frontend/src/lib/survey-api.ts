@@ -56,7 +56,11 @@ async function readApiErrorMessage(
   body: unknown,
   fallback: string,
 ): Promise<string> {
-  if (body && typeof body === 'object' && 'message' in body) {
+  if (body && typeof body === 'object') {
+    const detail = (body as { error?: unknown }).error
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail.trim()
+    }
     const message = (body as { message?: unknown }).message
     if (typeof message === 'string' && message.trim()) {
       return message.trim()

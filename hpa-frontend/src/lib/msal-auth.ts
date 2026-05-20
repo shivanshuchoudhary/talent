@@ -165,25 +165,21 @@ export async function getActiveMicrosoftAccount() {
 }
 
 export async function getMicrosoftAuthToken(
-  preferredIdToken?: string | null,
+  fallbackIdToken?: string | null,
 ): Promise<string | null> {
-  if (preferredIdToken?.trim()) {
-    return preferredIdToken.trim()
-  }
-
   if (!isMsalConfigured() || typeof window === 'undefined') {
-    return null
+    return fallbackIdToken?.trim() || null
   }
 
   const msalInstance = await getMsalInstance()
   if (!msalInstance) {
-    return null
+    return fallbackIdToken?.trim() || null
   }
 
   const account =
     msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts().at(0) ?? null
   if (!account) {
-    return null
+    return fallbackIdToken?.trim() || null
   }
 
   msalInstance.setActiveAccount(account)
@@ -193,11 +189,14 @@ export async function getMicrosoftAuthToken(
       ...loginRequest,
       account,
     })
-    return result.idToken || null
+    if (result.idToken?.trim()) {
+      return result.idToken.trim()
+    }
   } catch (error) {
     console.error('[Auth] Failed to acquire Microsoft token for API:', error)
-    return null
   }
+
+  return fallbackIdToken?.trim() || null
 }
 
 export function toUserData(account: AccountInfo): UserData {
