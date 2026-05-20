@@ -220,7 +220,9 @@ export function useSurveyFlowState() {
         raw: error,
       })
       setAuthError(
-        'We could not restore your session. Please try signing in again. If this continues, contact support.',
+        errorMessage.includes('Authentication is not configured')
+          ? 'The survey server is missing Microsoft sign-in configuration. Contact your administrator.'
+          : `We could not restore your session. ${errorMessage}`,
       )
       setShowProfileForm(false)
     } finally {

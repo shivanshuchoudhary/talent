@@ -51,6 +51,20 @@ export async function saveSurveyResults(resultData: ResultData) {
   }
 }
 
+async function readApiErrorMessage(
+  response: Response,
+  body: unknown,
+  fallback: string,
+): Promise<string> {
+  if (body && typeof body === 'object' && 'message' in body) {
+    const message = (body as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim()
+    }
+  }
+  return `${fallback} Status: ${response.status}`
+}
+
 export async function postSurveySession(
   userData: UserData | { email: string; name: string },
   preferredIdToken?: string | null,
@@ -62,7 +76,9 @@ export async function postSurveySession(
   })
   const body = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(`Failed to prepare user session. Status: ${response.status}`)
+    throw new Error(
+      await readApiErrorMessage(response, body, 'Failed to prepare user session.'),
+    )
   }
   return body as {
     data?: {
