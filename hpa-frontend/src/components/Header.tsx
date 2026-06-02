@@ -1,9 +1,13 @@
+import { Link, useRouterState } from '@tanstack/react-router'
 import { Button } from '#/components/ui/button'
 import { logoutMicrosoft } from '#/lib/msal-auth'
 import { useAssessmentStore } from '#/store/assessment-store'
 
 export default function Header() {
   const { isLoggedIn, signOut, resetAssessment } = useAssessmentStore()
+  const isAdminRoute = useRouterState({
+    select: (state) => state.location.pathname === '/admin',
+  })
 
   const handleSignOut = async () => {
     try {
@@ -23,11 +27,22 @@ export default function Header() {
           <img src="/logo-sobha.png" alt="Sobha Ascend Logo" className="h-10 w-10 object-contain" />
           <span className=" text-primary text-2xl font-semibold">Sobha Ascend</span>
         </a>
-        {isLoggedIn ? (
-          <Button variant="outline" size="sm" onClick={() => void handleSignOut()}>
-            Sign out
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {isAdminRoute ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/">Assessment</Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin">Admin</Link>
+            </Button>
+          )}
+          {isLoggedIn ? (
+            <Button variant="outline" size="sm" onClick={() => void handleSignOut()}>
+              Sign out
+            </Button>
+          ) : null}
+        </div>
       </nav>
     </header>
   )
