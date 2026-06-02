@@ -6,6 +6,9 @@ export const SURVEY_API_PATHS = {
   saveResponse: '/api/surveys/responses',
   listResponses: '/api/surveys/responses',
   responseStatus: '/api/surveys/responses/status',
+  me: '/api/surveys/me',
+  adminParticipants: '/api/surveys/admin/participants',
+  exportResponses: '/api/surveys/responses/export',
 } as const
 
 function devApiOrigin(): string {
@@ -40,6 +43,17 @@ export const API_SURVEY_RESPONSES_URL = resolveUrl(SURVEY_API_PATHS.saveResponse
 
 /** GET — list all responses (admin) */
 export const API_SURVEY_RESPONSES_LIST_URL = resolveUrl(SURVEY_API_PATHS.listResponses)
+
+/** GET — current user access (admin flag) */
+export const API_SURVEY_ME_URL = resolveUrl(SURVEY_API_PATHS.me)
+
+/** GET — admin participant summary */
+export const API_SURVEY_ADMIN_PARTICIPANTS_URL = resolveUrl(
+  SURVEY_API_PATHS.adminParticipants,
+)
+
+/** GET — admin Excel export */
+export const API_SURVEY_EXPORT_URL = resolveUrl(SURVEY_API_PATHS.exportResponses)
 
 /** GET — check completion by email (?email=) */
 export function apiSurveyResponsesStatusUrl(email: string): string {

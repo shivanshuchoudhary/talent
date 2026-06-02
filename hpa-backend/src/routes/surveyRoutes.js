@@ -5,6 +5,12 @@ const { requireMicrosoftAuth, requireAdmin } = require("../middleware/authMicros
 const { resolveSurveyUser, loadSurveyUserDocument } = require("../middleware/resolveSurveyUser");
 const azureAuth = require("../config/azureAuth");
 const { resolveBootstrapRole } = require("../constants/userRoles");
+const { resolveAdminAccess } = require("../services/resolveAdminAccess");
+const {
+  buildSurveyExportBuffer,
+  buildExportFilename,
+  buildAdminParticipants
+} = require("../services/surveyExport");
 
 const router = express.Router();
 
@@ -253,6 +259,73 @@ router.post(
     }
   }
 );
+
+router.get("/me", async (req, res) => {
+  const email = req.auth?.email;
+  if (!email && !azureAuth.authDisabled) {
+    return res.status(401).json({
+      message: "Authenticated user email is required."
+    });
+  }
+
+  try {
+    const access = await resolveAdminAccess(email);
+    return res.status(200).json({
+      data: {
+        email: email || null,
+        name: req.auth?.name ?? null,
+        isAdmin: access.isAdmin,
+        isSuperAdmin: access.isSuperAdmin,
+        role: access.role
+      }
+    });
+  } catch (error) {
+    console.error("[Survey][GET] /me failed:", {
+      email,
+      error: error.message
+    });
+    return res.status(500).json({
+      message: "Failed to resolve user access.",
+      error: error.message
+    });
+  }
+});
+
+router.get("/admin/participants", requireAdmin, async (_req, res) => {
+  try {
+    const participants = await buildAdminParticipants();
+    return res.status(200).json({ data: participants });
+  } catch (error) {
+    console.error("[Survey][GET] /admin/participants failed:", {
+      error: error.message
+    });
+    return res.status(500).json({
+      message: "Failed to fetch participants.",
+      error: error.message
+    });
+  }
+});
+
+router.get("/responses/export", requireAdmin, async (_req, res) => {
+  try {
+    const buffer = await buildSurveyExportBuffer();
+    const filename = buildExportFilename();
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.status(200).send(buffer);
+  } catch (error) {
+    console.error("[Survey][GET] /responses/export failed:", {
+      error: error.message
+    });
+    return res.status(500).json({
+      message: "Failed to export survey responses.",
+      error: error.message
+    });
+  }
+});
 
 router.get("/responses", requireAdmin, async (_req, res) => {
   try {

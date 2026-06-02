@@ -1,10 +1,5 @@
 const azureAuth = require("../config/azureAuth");
-const User = require("../models/User");
-const {
-  USER_ROLES,
-  isAdminRole,
-  isSuperAdminRole
-} = require("../constants/userRoles");
+const { resolveAdminAccess } = require("../services/resolveAdminAccess");
 
 /** jose v5+ is ESM-only — load via dynamic import from CommonJS. */
 let joseModulePromise;
@@ -228,22 +223,17 @@ async function requireAdmin(req, res, next) {
   }
 
   try {
-    const user = await User.findOne({ email }).select("role");
-    const role = user?.role ?? USER_ROLES.USER;
-    const isDbAdmin = isAdminRole(role);
-    const isEnvBootstrapAdmin =
-      azureAuth.adminEmails.has(email) || azureAuth.superAdminEmails.has(email);
+    const access = await resolveAdminAccess(email);
 
-    if (!isDbAdmin && !isEnvBootstrapAdmin) {
+    if (!access.isAdmin) {
       return res.status(403).json({
         message: "Admin access required."
       });
     }
 
     req.auth.isAdmin = true;
-    req.auth.isSuperAdmin =
-      isSuperAdminRole(role) || azureAuth.superAdminEmails.has(email);
-    req.auth.role = role;
+    req.auth.isSuperAdmin = access.isSuperAdmin;
+    req.auth.role = access.role;
     return next();
   } catch (error) {
     console.error("[Auth] Failed to resolve admin role:", {
@@ -271,12 +261,9 @@ async function requireSuperAdmin(req, res, next) {
   }
 
   try {
-    const user = await User.findOne({ email }).select("role");
-    const role = user?.role ?? USER_ROLES.USER;
-    const isDbSuperAdmin = isSuperAdminRole(role);
-    const isEnvBootstrapSuperAdmin = azureAuth.superAdminEmails.has(email);
+    const access = await resolveAdminAccess(email);
 
-    if (!isDbSuperAdmin && !isEnvBootstrapSuperAdmin) {
+    if (!access.isSuperAdmin) {
       return res.status(403).json({
         message: "Super admin access required."
       });
@@ -284,7 +271,7 @@ async function requireSuperAdmin(req, res, next) {
 
     req.auth.isSuperAdmin = true;
     req.auth.isAdmin = true;
-    req.auth.role = role;
+    req.auth.role = access.role;
     return next();
   } catch (error) {
     console.error("[Auth] Failed to resolve super admin role:", {
