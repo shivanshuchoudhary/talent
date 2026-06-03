@@ -1,7 +1,9 @@
 import {
   API_SURVEY_ADMIN_PARTICIPANTS_URL,
+  API_SURVEY_ADMIN_USERS_URL,
   API_SURVEY_EXPORT_URL,
   API_SURVEY_ME_URL,
+  apiSurveyAdminUserUrl,
 } from '#/lib/api'
 import { getMicrosoftAuthToken } from '#/lib/msal-auth'
 
@@ -11,6 +13,16 @@ export type AdminAccess = {
   isAdmin: boolean
   isSuperAdmin: boolean
   role: string | null
+}
+
+export type AdminUserRecord = {
+  email: string
+  name: string
+  role: string
+  source: 'database' | 'environment'
+  canRemove: boolean
+  createdAt?: string | null
+  updatedAt?: string | null
 }
 
 export type AdminParticipant = {
@@ -98,6 +110,55 @@ export async function fetchAdminParticipants(
   }
   const payload = body as { data?: AdminParticipant[] } | null
   return Array.isArray(payload?.data) ? payload.data : []
+}
+
+export async function fetchAdminUsers(
+  preferredIdToken?: string | null,
+): Promise<AdminUserRecord[]> {
+  const response = await fetch(API_SURVEY_ADMIN_USERS_URL, {
+    method: 'GET',
+    headers: await buildAuthHeaders(preferredIdToken),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to load admins.'))
+  }
+  const payload = body as { data?: AdminUserRecord[] } | null
+  return Array.isArray(payload?.data) ? payload.data : []
+}
+
+export async function grantAdminAccess(
+  email: string,
+  preferredIdToken?: string | null,
+): Promise<AdminUserRecord> {
+  const response = await fetch(API_SURVEY_ADMIN_USERS_URL, {
+    method: 'POST',
+    headers: await buildAuthHeaders(preferredIdToken),
+    body: JSON.stringify({ email }),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to add admin.'))
+  }
+  const data = (body as { data?: AdminUserRecord } | null)?.data
+  if (!data) {
+    throw new Error('Server did not return admin user data.')
+  }
+  return data
+}
+
+export async function revokeAdminAccess(
+  email: string,
+  preferredIdToken?: string | null,
+): Promise<void> {
+  const response = await fetch(apiSurveyAdminUserUrl(email), {
+    method: 'DELETE',
+    headers: await buildAuthHeaders(preferredIdToken),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to remove admin.'))
+  }
 }
 
 export async function downloadSurveyExport(

@@ -1,7 +1,11 @@
 const express = require("express");
 const SurveyResponse = require("../models/SurveyResponse");
 const User = require("../models/User");
-const { requireMicrosoftAuth, requireAdmin } = require("../middleware/authMicrosoft");
+const {
+  requireMicrosoftAuth,
+  requireAdmin,
+  requireSuperAdmin
+} = require("../middleware/authMicrosoft");
 const { resolveSurveyUser, loadSurveyUserDocument } = require("../middleware/resolveSurveyUser");
 const azureAuth = require("../config/azureAuth");
 const { resolveBootstrapRole } = require("../constants/userRoles");
@@ -11,6 +15,11 @@ const {
   buildExportFilename,
   buildAdminParticipants
 } = require("../services/surveyExport");
+const {
+  listAdminUsers,
+  addAdminUser,
+  removeAdminUser
+} = require("../services/adminUsers");
 
 const router = express.Router();
 
@@ -301,6 +310,61 @@ router.get("/admin/participants", requireAdmin, async (_req, res) => {
     });
     return res.status(500).json({
       message: "Failed to fetch participants.",
+      error: error.message
+    });
+  }
+});
+
+router.get("/admin/users", requireSuperAdmin, async (_req, res) => {
+  try {
+    const admins = await listAdminUsers();
+    return res.status(200).json({ data: admins });
+  } catch (error) {
+    console.error("[Survey][GET] /admin/users failed:", { error: error.message });
+    return res.status(500).json({
+      message: "Failed to list admin users.",
+      error: error.message
+    });
+  }
+});
+
+router.post("/admin/users", requireSuperAdmin, async (req, res) => {
+  const email = req.body?.email;
+  try {
+    const created = await addAdminUser(email, req.auth?.email);
+    return res.status(201).json({
+      message: "Admin access granted.",
+      data: created
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 400;
+    console.error("[Survey][POST] /admin/users failed:", {
+      email,
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to add admin.",
+      error: error.message
+    });
+  }
+});
+
+router.delete("/admin/users/:email", requireSuperAdmin, async (req, res) => {
+  const email = decodeURIComponent(req.params.email ?? "");
+  try {
+    const result = await removeAdminUser(email, req.auth?.email);
+    return res.status(200).json({
+      message: "Admin access removed.",
+      data: result
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 400;
+    console.error("[Survey][DELETE] /admin/users failed:", {
+      email,
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to remove admin.",
       error: error.message
     });
   }

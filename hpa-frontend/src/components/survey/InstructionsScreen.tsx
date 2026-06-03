@@ -1,9 +1,12 @@
 import { Button } from '#/components/ui/button'
 import { AuthHeroPanel } from '#/components/AuthHeroPanel'
+import { AdminDashboardNavLink } from '#/components/admin/AdminDashboardNavLink'
+import { useUserAccess } from '#/features/access/use-user-access'
 import { useSurveyFlow } from '#/features/survey-flow/survey-flow-context'
 
 export function InstructionsScreen() {
   const { answeredCount, handleStartOrContinueSurvey } = useSurveyFlow()
+  const { isAdmin, isLoading: isAccessLoading } = useUserAccess()
 
   return (
     <div className="min-h-[calc(100vh-72px)] bg-white lg:grid lg:grid-cols-[1.15fr_0.85fr]">
@@ -52,7 +55,7 @@ export function InstructionsScreen() {
               </div>
             </div>
 
-            <div className="mt-8 text-center">
+            <div className="mt-8 flex flex-col items-center gap-3">
               <Button
                 className="w-full sm:w-auto"
                 size="lg"
@@ -60,6 +63,9 @@ export function InstructionsScreen() {
               >
                 {answeredCount > 0 ? 'Continue Survey' : 'Start Survey'}
               </Button>
+              {isAdmin && !isAccessLoading ? (
+                <AdminDashboardNavLink variant="outline" fullWidth className="sm:w-auto" />
+              ) : null}
             </div>
           </div>
         </section>

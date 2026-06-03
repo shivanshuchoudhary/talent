@@ -8,6 +8,7 @@ export const SURVEY_API_PATHS = {
   responseStatus: '/api/surveys/responses/status',
   me: '/api/surveys/me',
   adminParticipants: '/api/surveys/admin/participants',
+  adminUsers: '/api/surveys/admin/users',
   exportResponses: '/api/surveys/responses/export',
 } as const
 
@@ -54,6 +55,15 @@ export const API_SURVEY_ADMIN_PARTICIPANTS_URL = resolveUrl(
 
 /** GET — admin Excel export */
 export const API_SURVEY_EXPORT_URL = resolveUrl(SURVEY_API_PATHS.exportResponses)
+
+/** GET/POST — super admin: list / grant admin */
+export const API_SURVEY_ADMIN_USERS_URL = resolveUrl(SURVEY_API_PATHS.adminUsers)
+
+export function apiSurveyAdminUserUrl(email: string): string {
+  return resolveUrl(
+    `${SURVEY_API_PATHS.adminUsers}/${encodeURIComponent(email)}`,
+  )
+}
 
 /** GET — check completion by email (?email=) */
 export function apiSurveyResponsesStatusUrl(email: string): string {

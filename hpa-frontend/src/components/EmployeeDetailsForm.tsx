@@ -1,4 +1,4 @@
-import type { SubmitEvent } from 'react'
+import type { ReactNode, SubmitEvent } from 'react'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
@@ -34,6 +34,7 @@ interface EmployeeDetailsFormProps {
   onOtherEntityChange: (value: string) => void
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void
   onBack: () => void
+  footerExtra?: ReactNode
 }
 
 export function EmployeeDetailsForm({
@@ -44,6 +45,7 @@ export function EmployeeDetailsForm({
   onOtherEntityChange,
   onSubmit,
   onBack,
+  footerExtra,
 }: EmployeeDetailsFormProps) {
   return (
     <div className="min-h-[calc(100vh-72px)] bg-white lg:grid lg:grid-cols-[1.15fr_0.85fr]">
@@ -194,6 +196,7 @@ export function EmployeeDetailsForm({
                 </Button>
                 <Button type="submit">Next</Button>
               </div>
+              {footerExtra}
             </form>
           </div>
         </section>
