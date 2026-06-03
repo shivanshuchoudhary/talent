@@ -1,89 +1,13 @@
+import { useMemo } from 'react'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
 import { AuthHeroPanel } from '#/components/AuthHeroPanel'
+import { AdminInsightsPanel } from '#/components/admin/AdminInsightsPanel'
+import { AdminParticipantsSection } from '#/components/admin/AdminParticipantsSection'
+import { AdminStatsOverview } from '#/components/admin/AdminStatsOverview'
 import { useAdminPage } from '#/features/admin/use-admin-page'
-import type { AdminParticipant } from '#/lib/admin-api'
-import { Download, LogOut } from 'lucide-react'
-
-function statusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (status === 'Completed') {
-    return 'default'
-  }
-  if (status === 'Timed out') {
-    return 'destructive'
-  }
-  if (status.includes('progress')) {
-    return 'secondary'
-  }
-  return 'outline'
-}
-
-function formatSubmittedAt(value: string | null | undefined) {
-  if (!value) {
-    return '—'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '—'
-  }
-  return date.toLocaleString()
-}
-
-function ParticipantTable({ rows }: { rows: AdminParticipant[] }) {
-  if (rows.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-        No participants registered yet.
-      </p>
-    )
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Employee</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Grade</TableHead>
-            <TableHead>Answered</TableHead>
-            <TableHead>Submitted</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.user.id}>
-              <TableCell>
-                <div className="font-medium">{row.user.name}</div>
-                <div className="text-xs text-muted-foreground">{row.user.employeeCode}</div>
-              </TableCell>
-              <TableCell className="text-sm">{row.user.email}</TableCell>
-              <TableCell className="text-sm">{row.user.Department}</TableCell>
-              <TableCell>
-                <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
-              </TableCell>
-              <TableCell>{row.response?.letterGrade ?? '—'}</TableCell>
-              <TableCell>{row.response?.questionsAnsweredCount ?? 0}</TableCell>
-              <TableCell className="text-sm">
-                {formatSubmittedAt(row.response?.submittedAt)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
+import { computeAdminDashboardStats } from '#/lib/admin-analytics'
+import { Download, LayoutDashboard, LogOut, Shield } from 'lucide-react'
 
 export function AdminDashboard() {
   const {
@@ -103,28 +27,100 @@ export function AdminDashboard() {
     handleDownload,
   } = useAdminPage()
 
+  const stats = useMemo(
+    () => computeAdminDashboardStats(participants),
+    [participants],
+  )
+
   const showLogin =
     !isSignedIn && !isHandlingMsalRedirect && !isAuthRedirecting && !isLoadingDashboard
 
-  return (
-    <div className="min-h-[calc(100vh-72px)] bg-white lg:grid lg:grid-cols-[1.15fr_0.85fr]">
-      <AuthHeroPanel title="Admin dashboard — assessment submissions" titleAs="h2" />
+  const showDashboard =
+    isSignedIn && isAdmin && !isHandlingMsalRedirect && !isLoadingDashboard
 
-      <section className="flex flex-col bg-white px-5 py-8 sm:px-8 lg:min-h-[calc(100vh-72px)] lg:px-10 xl:px-12">
-        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
-              {access?.email ? (
-                <p className="mt-1 text-sm text-muted-foreground">{access.email}</p>
-              ) : null}
+  if (showDashboard) {
+    return (
+      <div className="min-h-[calc(100vh-72px)] bg-[oklch(0.98_0.005_106)]">
+        <div
+          className="border-b border-border bg-card/90 backdrop-blur-sm"
+          style={{
+            backgroundImage:
+              'linear-gradient(90deg, oklch(0.98 0.01 106) 0%, oklch(0.96 0.02 95) 100%)',
+          }}
+        >
+          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-4">
+              <img
+                src="/logo-sobha.png"
+                alt=""
+                className="size-12 object-contain"
+                aria-hidden
+              />
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                    Assessment analytics
+                  </h1>
+                  <Badge variant="secondary" className="gap-1">
+                    <Shield className="size-3" />
+                    Admin
+                  </Badge>
+                  {access?.isSuperAdmin ? (
+                    <Badge variant="outline">Super admin</Badge>
+                  ) : null}
+                </div>
+                {access?.email ? (
+                  <p className="mt-1 text-sm text-muted-foreground">{access.email}</p>
+                ) : null}
+              </div>
             </div>
-            {isSignedIn ? (
-              <Button variant="outline" size="sm" onClick={() => void handleSignOut()}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => void handleDownload()}
+                disabled={isDownloading}
+              >
+                <Download className="mr-2 size-4" />
+                {isDownloading ? 'Preparing export…' : 'Export Excel'}
+              </Button>
+              <Button variant="outline" onClick={() => void handleSignOut()}>
                 <LogOut className="mr-2 size-4" />
                 Sign out
               </Button>
-            ) : null}
+            </div>
+          </div>
+        </div>
+
+        <main className="mx-auto max-w-[1400px] space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+          {loadError ? (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {loadError}
+            </p>
+          ) : null}
+
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <LayoutDashboard className="size-4 text-primary" />
+            <span>High Potential Assessment — live overview</span>
+          </div>
+
+          <AdminStatsOverview stats={stats} />
+          <AdminInsightsPanel stats={stats} />
+          <AdminParticipantsSection participants={participants} />
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-[calc(100vh-72px)] bg-white lg:grid lg:grid-cols-[1.15fr_0.85fr]">
+      <AuthHeroPanel title="Admin dashboard — assessment insights" titleAs="h2" />
+
+      <section className="flex flex-col bg-white px-5 py-8 sm:px-8 lg:min-h-[calc(100vh-72px)] lg:px-10 xl:px-12">
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Sign in with Microsoft to view assessment analytics and exports.
+            </p>
           </div>
 
           {authError ? (
@@ -157,7 +153,7 @@ export function AdminDashboard() {
                 </p>
               ) : (
                 <Button
-                  className="w-full max-w-md"
+                  className="w-full"
                   size="lg"
                   onClick={() => void handleLogin()}
                 >
@@ -175,27 +171,9 @@ export function AdminDashboard() {
 
           {isSignedIn && !isAdmin && !isHandlingMsalRedirect && !isLoadingDashboard ? (
             <p className="mt-8 rounded-lg border border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
-              You are signed in but do not have admin access. Contact your administrator to be
-              added to the admin list.
+              You are signed in but do not have admin access. Contact your administrator to
+              be added to the admin list.
             </p>
-          ) : null}
-
-          {isSignedIn && isAdmin && !isHandlingMsalRedirect && !isLoadingDashboard ? (
-            <div className="mt-6 flex flex-1 flex-col gap-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={() => void handleDownload()}
-                  disabled={isDownloading}
-                >
-                  <Download className="mr-2 size-4" />
-                  {isDownloading ? 'Preparing download…' : 'Download Excel export'}
-                </Button>
-                <p className="text-sm text-muted-foreground">
-                  {participants.length} participant{participants.length === 1 ? '' : 's'}
-                </p>
-              </div>
-              <ParticipantTable rows={participants} />
-            </div>
           ) : null}
         </div>
       </section>
