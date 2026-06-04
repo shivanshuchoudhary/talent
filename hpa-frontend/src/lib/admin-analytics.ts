@@ -11,6 +11,7 @@ export type CountSlice = {
 
 export type AdminDashboardStats = {
   totalParticipants: number
+  registeredToday: number
   withSubmission: number
   completed: number
   timedOut: number
@@ -64,6 +65,17 @@ function countByField(
     }))
 }
 
+function isToday(dateValue: string): boolean {
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return false
+  const today = new Date()
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  )
+}
+
 function buildSubmissionsByDay(rows: AdminParticipant[]) {
   const counts = new Map<string, number>()
   for (const row of rows) {
@@ -92,6 +104,7 @@ export function computeAdminDashboardStats(
   participants: AdminParticipant[],
 ): AdminDashboardStats {
   const totalParticipants = participants.length
+  const registeredToday = participants.filter((p) => isToday(p.user.createdAt)).length
   const completed = participants.filter((p) => p.status === 'Completed').length
   const timedOut = participants.filter((p) => p.status === 'Timed out').length
   const inProgress = participants.filter((p) => p.status === 'In progress').length
@@ -166,6 +179,7 @@ export function computeAdminDashboardStats(
 
   return {
     totalParticipants,
+    registeredToday,
     withSubmission,
     completed,
     timedOut,

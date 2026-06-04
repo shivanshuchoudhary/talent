@@ -13,7 +13,7 @@ import { cn } from '#/lib/utils'
 type StatCardProps = {
   label: string
   value: string | number
-  hint?: string
+  hint?: ReactNode
   icon: ReactNode
   accent?: string
 }
@@ -66,7 +66,14 @@ export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
       <StatCard
         label="Total registered"
         value={stats.totalParticipants}
-        hint="All employee profiles"
+        hint={
+          <>
+            <span style={{ color: 'oklch(0.55 0.14 155)' }}>
+              +{stats.registeredToday}
+            </span>{' '}
+            today
+          </>
+        }
         icon={<Users className="size-5" />}
         accent="var(--primary)"
       />
