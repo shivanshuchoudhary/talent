@@ -246,14 +246,14 @@ export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownPro
       >
         <TabsList>
           <TabsTrigger value="entity">By entity</TabsTrigger>
-          <TabsTrigger value="department">By department</TabsTrigger>
+          <TabsTrigger value="department" disabled>By department</TabsTrigger>
         </TabsList>
         <TabsContent value="entity" className="mt-5">
           <SegmentTabs participants={participants} dimension="entity" />
         </TabsContent>
-        <TabsContent value="department" className="mt-5">
+        {/* <TabsContent value="department" className="mt-5">
           <SegmentTabs participants={participants} dimension="department" />
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </section>
   )
