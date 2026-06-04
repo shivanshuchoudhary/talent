@@ -45,6 +45,17 @@ export type AdminParticipant = {
     timedOut: boolean
     questionsAnsweredCount: number
     letterGrade: string | null
+    categoryResults: {
+      letterGrade: string | null
+      categories: Array<{
+        categoryId: number
+        title: string
+        totalScore: number
+        averageScore: number
+        weightedScore: number
+        scoreLevel: string
+      }>
+    } | null
     submittedAt: string | null
     updatedAt: string | null
   } | null

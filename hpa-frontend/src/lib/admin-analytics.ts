@@ -232,3 +232,111 @@ export function filterParticipants(
     return haystack.includes(q)
   })
 }
+
+export type SegmentDimension = 'entity' | 'department'
+
+export type SegmentInsights = {
+  segmentLabel: string
+  participantCount: number
+  withSubmission: number
+  gradedCount: number
+  topCompetency: { title: string; averageScore: number } | null
+  gradeDistribution: CountSlice[]
+  competencyAverages: CountSlice[]
+}
+
+function normalizeSegmentLabel(value: string) {
+  return value.trim() || 'Unspecified'
+}
+
+export function getSegmentOptions(
+  participants: AdminParticipant[],
+  dimension: SegmentDimension,
+): string[] {
+  const values = new Set<string>()
+  for (const participant of participants) {
+    const raw =
+      dimension === 'entity' ? participant.user.entity : participant.user.Department
+    values.add(normalizeSegmentLabel(raw))
+  }
+  return [...values].sort((a, b) => {
+    if (a === 'Unspecified') return 1
+    if (b === 'Unspecified') return -1
+    return a.localeCompare(b)
+  })
+}
+
+function filterParticipantsBySegment(
+  participants: AdminParticipant[],
+  dimension: SegmentDimension,
+  segment: string,
+): AdminParticipant[] {
+  return participants.filter((participant) => {
+    const value =
+      dimension === 'entity' ? participant.user.entity : participant.user.Department
+    return normalizeSegmentLabel(value) === segment
+  })
+}
+
+export function computeSegmentInsights(
+  participants: AdminParticipant[],
+  dimension: SegmentDimension,
+  segment: string,
+): SegmentInsights {
+  const rows = filterParticipantsBySegment(participants, dimension, segment)
+  const participantCount = rows.length
+  const withSubmission = rows.filter((row) => row.response).length
+  const graded = rows.filter((row) => row.response?.letterGrade)
+  const gradedCount = graded.length
+
+  const gradeOrder = ['A+', 'A', 'B'] as const
+  const gradeDistribution: CountSlice[] = gradeOrder.map((label) => ({
+    label,
+    count: graded.filter((row) => row.response?.letterGrade === label).length,
+    color: GRADE_COLORS[label] ?? 'var(--chart-3)',
+  }))
+
+  const competencyTotals = new Map<number, { title: string; sum: number; count: number }>()
+  for (const row of rows) {
+    const categories = row.response?.categoryResults?.categories ?? []
+    for (const category of categories) {
+      const existing = competencyTotals.get(category.categoryId)
+      if (existing) {
+        existing.sum += category.averageScore
+        existing.count += 1
+      } else {
+        competencyTotals.set(category.categoryId, {
+          title: category.title,
+          sum: category.averageScore,
+          count: 1,
+        })
+      }
+    }
+  }
+
+  const competencyAverages: CountSlice[] = [...competencyTotals.entries()]
+    .map(([categoryId, entry]) => ({
+      label: entry.title,
+      count: entry.count > 0 ? Math.round((entry.sum / entry.count) * 100) / 100 : 0,
+      color: `var(--chart-${(categoryId % 5) + 1})`,
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  const topCompetency =
+    competencyAverages.length > 0
+      ? {
+          title: competencyAverages[0].label,
+          averageScore: competencyAverages[0].count,
+        }
+      : null
+
+  return {
+    segmentLabel: segment,
+    participantCount,
+    withSubmission,
+    gradedCount,
+    topCompetency,
+    gradeDistribution,
+    competencyAverages,
+  }
+}

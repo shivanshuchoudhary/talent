@@ -266,6 +266,21 @@ async function buildAdminParticipants() {
               ? response.questionsAnswered.length
               : 0,
             letterGrade: response.categoryResults?.letterGrade ?? null,
+            categoryResults: response.categoryResults
+              ? {
+                  letterGrade: response.categoryResults.letterGrade ?? null,
+                  categories: Array.isArray(response.categoryResults.categories)
+                    ? response.categoryResults.categories.map((category) => ({
+                        categoryId: category.categoryId,
+                        title: category.title,
+                        totalScore: category.totalScore,
+                        averageScore: category.averageScore,
+                        weightedScore: category.weightedScore,
+                        scoreLevel: category.scoreLevel
+                      }))
+                    : []
+                }
+              : null,
             submittedAt: response.submittedAt,
             updatedAt: response.updatedAt
           }

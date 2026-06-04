@@ -4,6 +4,7 @@ import { Button } from '#/components/ui/button'
 import { AuthHeroPanel } from '#/components/AuthHeroPanel'
 import { AdminInsightsPanel } from '#/components/admin/AdminInsightsPanel'
 import { AdminParticipantsSection } from '#/components/admin/AdminParticipantsSection'
+import { AdminSegmentBreakdown } from '#/components/admin/AdminSegmentBreakdown'
 import { AdminUserManagement } from '#/components/admin/AdminUserManagement'
 import { AdminStatsOverview } from '#/components/admin/AdminStatsOverview'
 import { useAdminPage } from '#/features/admin/use-admin-page'
@@ -104,6 +105,7 @@ export function AdminDashboard() {
           </div>
 
           <AdminStatsOverview stats={stats} />
+          <AdminSegmentBreakdown participants={participants} />
           <AdminInsightsPanel stats={stats} />
           {access?.isSuperAdmin ? <AdminUserManagement /> : null}
           <AdminParticipantsSection participants={participants} />

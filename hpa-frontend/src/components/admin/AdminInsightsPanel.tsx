@@ -6,7 +6,7 @@ import {
   HorizontalBarChart,
   VerticalBarChart,
 } from '#/components/admin/AdminChartPrimitives'
-import { BarChart3, Building2, Layers, PieChart } from 'lucide-react'
+import { BarChart3, Layers, PieChart } from 'lucide-react'
 
 function ChartCard({
   title,
@@ -121,34 +121,6 @@ export function AdminInsightsPanel({ stats }: AdminInsightsPanelProps) {
         className="lg:col-span-1 2xl:col-span-1"
       >
         <HorizontalBarChart items={stats.progressBuckets} maxItems={6} />
-      </ChartCard>
-
-      <ChartCard
-        title="By department"
-        subtitle="Top departments by participant count"
-        icon={<Building2 className="size-4" />}
-      >
-        <HorizontalBarChart
-          items={stats.departmentBreakdown.map((d) => ({
-            ...d,
-            color: 'var(--primary)',
-          }))}
-          maxItems={8}
-        />
-      </ChartCard>
-
-      <ChartCard
-        title="By entity"
-        subtitle="Organizational entity breakdown"
-        icon={<Building2 className="size-4" />}
-      >
-        <HorizontalBarChart
-          items={stats.entityBreakdown.map((d, i) => ({
-            ...d,
-            color: `var(--chart-${(i % 5) + 1})`,
-          }))}
-          maxItems={8}
-        />
       </ChartCard>
 
       {stats.submissionsByDay.length > 0 ? (
