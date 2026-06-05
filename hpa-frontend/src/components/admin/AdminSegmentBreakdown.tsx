@@ -166,28 +166,19 @@ function SegmentInsightsPanel({
   )
 }
 
-function SegmentTabs({
-  participants,
-  dimension,
+function EntityTabsNav({
+  options,
+  selected,
+  onSelectedChange,
 }: {
-  participants: AdminParticipant[]
-  dimension: SegmentDimension
+  options: string[]
+  selected: string
+  onSelectedChange: (value: string) => void
 }) {
-  const options = useMemo(
-    () => getSegmentOptions(participants, dimension),
-    [participants, dimension],
-  )
-  const [selected, setSelected] = useState('')
-
-  useEffect(() => {
-    setSelected(options[0] ?? '')
-  }, [options])
-
   if (options.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-        No {dimension === 'entity' ? 'entities' : 'departments'} found in participant
-        records yet.
+        No entities found in participant records yet.
       </p>
     )
   }
@@ -195,39 +186,38 @@ function SegmentTabs({
   return (
     <Tabs
       value={selected}
-      onValueChange={setSelected}
+      onValueChange={onSelectedChange}
       orientation="vertical"
-      className="grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)]"
+      className="block"
     >
       <TabsList
-        variant="line"
-        className="max-h-[520px] w-full justify-start overflow-y-auto bg-transparent p-0"
+        className="max-h-[520px] w-full flex-col items-stretch justify-start overflow-y-auto"
       >
         {options.map((option) => (
           <TabsTrigger
             key={option}
             value={option}
-            className="min-h-9 w-full justify-start text-left"
+            className="min-h-9 flex-none justify-start text-left"
           >
             {option}
           </TabsTrigger>
         ))}
       </TabsList>
-      {options.map((option) => (
-        <TabsContent key={option} value={option} className="min-w-0">
-          <SegmentInsightsPanel
-            participants={participants}
-            dimension={dimension}
-            segment={option}
-          />
-        </TabsContent>
-      ))}
     </Tabs>
   )
 }
 
 export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownProps) {
   const [dimension, setDimension] = useState<SegmentDimension>('entity')
+  const entityOptions = useMemo(
+    () => getSegmentOptions(participants, 'entity'),
+    [participants],
+  )
+  const [selectedEntity, setSelectedEntity] = useState('')
+
+  useEffect(() => {
+    setSelectedEntity(entityOptions[0] ?? '')
+  }, [entityOptions])
 
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm lg:w-1/2">
@@ -246,14 +236,41 @@ export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownPro
         value={dimension}
         onValueChange={(value) => setDimension(value as SegmentDimension)}
         orientation="vertical"
-        className="grid gap-4 lg:grid-cols-[130px_minmax(0,1fr)]"
+        className="grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)]"
       >
-        <TabsList className="h-fit w-full flex-col">
-          <TabsTrigger value="entity">By entity</TabsTrigger>
-          <TabsTrigger value="department" disabled>By department</TabsTrigger>
-        </TabsList>
+        <div className="space-y-3">
+          <TabsList className="h-fit w-full flex-col items-stretch">
+            <TabsTrigger value="entity" className="flex-none justify-start">
+              By entity
+            </TabsTrigger>
+            <TabsTrigger
+              value="department"
+              disabled
+              className="flex-none justify-start"
+            >
+              By department
+            </TabsTrigger>
+          </TabsList>
+          {dimension === 'entity' ? (
+            <EntityTabsNav
+              options={entityOptions}
+              selected={selectedEntity}
+              onSelectedChange={setSelectedEntity}
+            />
+          ) : null}
+        </div>
         <TabsContent value="entity" className="min-w-0">
-          <SegmentTabs participants={participants} dimension="entity" />
+          {selectedEntity ? (
+            <SegmentInsightsPanel
+              participants={participants}
+              dimension="entity"
+              segment={selectedEntity}
+            />
+          ) : (
+            <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              No entities found in participant records yet.
+            </p>
+          )}
         </TabsContent>
       </Tabs>
     </section>
