@@ -54,11 +54,6 @@ export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
         'relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6',
       )}
     >
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 size-40 rounded-full opacity-[0.06]"
-        style={{ backgroundColor: 'var(--primary)' }}
-      />
-
       <div className="flex items-start justify-between gap-6">
         <div>
           <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">

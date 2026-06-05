@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdminParticipant } from '#/lib/admin-api'
-import {
-  computeSegmentInsights,
-  getSegmentOptions,
-  type SegmentDimension,
-} from '#/lib/admin-analytics'
+import type { SegmentDimension } from '#/lib/admin-analytics'
+import { computeSegmentInsights, getSegmentOptions } from '#/lib/admin-analytics'
 import { ChartLegend, HorizontalBarChart } from '#/components/admin/AdminChartPrimitives'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Building2, Sparkles, TrendingUp } from 'lucide-react'
@@ -66,37 +63,37 @@ function SegmentInsightsPanel({
   }))
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
+    <div className="space-y-4">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Participants
           </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
+          <p className="mt-1 text-xl font-semibold tabular-nums">
             {insights.participantCount}
           </p>
         </div>
-        <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
+        <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             With submission
           </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
+          <p className="mt-1 text-xl font-semibold tabular-nums">
             {insights.withSubmission}
           </p>
         </div>
-        <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
+        <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Graded
           </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
+          <p className="mt-1 text-xl font-semibold tabular-nums">
             {insights.gradedCount}
           </p>
         </div>
       </div>
 
       {insights.topCompetency ? (
-        <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Sparkles className="size-4" />
           </div>
           <div>
@@ -121,9 +118,9 @@ function SegmentInsightsPanel({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-border p-4">
-          <div className="mb-4 flex items-start gap-3">
+      <div className="grid gap-3">
+        <div className="rounded-lg border border-border p-3">
+          <div className="mb-3 flex items-start gap-3">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <TrendingUp className="size-4" />
             </div>
@@ -144,8 +141,8 @@ function SegmentInsightsPanel({
           )}
         </div>
 
-        <div className="rounded-lg border border-border p-4">
-          <div className="mb-4 flex items-start gap-3">
+        <div className="rounded-lg border border-border p-3">
+          <div className="mb-3 flex items-start gap-3">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Building2 className="size-4" />
             </div>
@@ -196,19 +193,28 @@ function SegmentTabs({
   }
 
   return (
-    <Tabs value={selected} onValueChange={setSelected}>
+    <Tabs
+      value={selected}
+      onValueChange={setSelected}
+      orientation="vertical"
+      className="grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)]"
+    >
       <TabsList
         variant="line"
-        className="h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0"
+        className="max-h-[520px] w-full justify-start overflow-y-auto bg-transparent p-0"
       >
         {options.map((option) => (
-          <TabsTrigger key={option} value={option} className="shrink-0">
+          <TabsTrigger
+            key={option}
+            value={option}
+            className="min-h-9 w-full justify-start text-left"
+          >
             {option}
           </TabsTrigger>
         ))}
       </TabsList>
       {options.map((option) => (
-        <TabsContent key={option} value={option} className="mt-6">
+        <TabsContent key={option} value={option} className="min-w-0">
           <SegmentInsightsPanel
             participants={participants}
             dimension={dimension}
@@ -224,8 +230,8 @@ export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownPro
   const [dimension, setDimension] = useState<SegmentDimension>('entity')
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
-      <div className="mb-5 flex items-start gap-3">
+    <section className="rounded-xl border border-border bg-card p-4 shadow-sm lg:w-1/2">
+      <div className="mb-4 flex items-start gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Building2 className="size-4" />
         </div>
@@ -233,27 +239,22 @@ export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownPro
           <h2 className="text-lg font-semibold tracking-tight">
             Entity & department analysis
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Filter by business unit or department to compare competency trends and grade
-            distribution. Lists are built from live participant records.
-          </p>
         </div>
       </div>
 
       <Tabs
         value={dimension}
         onValueChange={(value) => setDimension(value as SegmentDimension)}
+        orientation="vertical"
+        className="grid gap-4 lg:grid-cols-[130px_minmax(0,1fr)]"
       >
-        <TabsList>
+        <TabsList className="h-fit w-full flex-col">
           <TabsTrigger value="entity">By entity</TabsTrigger>
           <TabsTrigger value="department" disabled>By department</TabsTrigger>
         </TabsList>
-        <TabsContent value="entity" className="mt-5">
+        <TabsContent value="entity" className="min-w-0">
           <SegmentTabs participants={participants} dimension="entity" />
         </TabsContent>
-        {/* <TabsContent value="department" className="mt-5">
-          <SegmentTabs participants={participants} dimension="department" />
-        </TabsContent> */}
       </Tabs>
     </section>
   )
