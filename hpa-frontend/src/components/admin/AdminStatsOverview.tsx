@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Clock,
   TimerOff,
-  Users,
   UserCheck,
 } from 'lucide-react'
 import { cn } from '#/lib/utils'
@@ -52,7 +51,7 @@ export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
   return (
     <section
       className={cn(
-        'relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8',
+        'relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6',
       )}
     >
       <div
@@ -65,7 +64,7 @@ export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
           <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Total registered
           </p>
-          <p className="mt-2 text-5xl font-semibold tabular-nums tracking-tight sm:text-6xl">
+          <p className="mt-1 text-5xl font-semibold tabular-nums tracking-tight">
             {stats.totalParticipants}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -75,18 +74,9 @@ export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
             today
           </p>
         </div>
-        <div
-          className="flex size-14 shrink-0 items-center justify-center rounded-2xl sm:size-16"
-          style={{
-            backgroundColor: 'color-mix(in oklch, var(--primary) 12%, transparent)',
-            color: 'var(--primary)',
-          }}
-        >
-          <Users className="size-7 sm:size-8" />
-        </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap gap-2">
         <StatBadge
           label="Completed"
           value={stats.completed}

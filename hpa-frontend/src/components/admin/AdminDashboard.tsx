@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { AuthHeroPanel } from '#/components/AuthHeroPanel'
 import { AdminInsightsPanel } from '#/components/admin/AdminInsightsPanel'
@@ -9,7 +8,6 @@ import { AdminUserManagement } from '#/components/admin/AdminUserManagement'
 import { AdminStatsOverview } from '#/components/admin/AdminStatsOverview'
 import { useAdminPage } from '#/features/admin/use-admin-page'
 import { computeAdminDashboardStats } from '#/lib/admin-analytics'
-import { Download, LayoutDashboard, LogOut, Shield } from 'lucide-react'
 
 export function AdminDashboard() {
   const {
@@ -20,13 +18,10 @@ export function AdminDashboard() {
     isHandlingMsalRedirect,
     isAuthRedirecting,
     isLoadingDashboard,
-    isDownloading,
     isSignedIn,
     isAdmin,
     isMsalConfigured,
     handleLogin,
-    handleSignOut,
-    handleDownload,
   } = useAdminPage()
 
   const stats = useMemo(
@@ -43,66 +38,14 @@ export function AdminDashboard() {
   if (showDashboard) {
     return (
       <div className="min-h-[calc(100vh-72px)] bg-[oklch(0.98_0.005_106)]">
-        <div
-          className="border-b border-border bg-card/90 backdrop-blur-sm"
-          style={{
-            backgroundImage:
-              'linear-gradient(90deg, oklch(0.98 0.01 106) 0%, oklch(0.96 0.02 95) 100%)',
-          }}
-        >
-          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-4">
-              <img
-                src="/logo-sobha.png"
-                alt=""
-                className="size-12 object-contain"
-                aria-hidden
-              />
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-                    Assessment analytics
-                  </h1>
-                  <Badge variant="secondary" className="gap-1">
-                    <Shield className="size-3" />
-                    Admin
-                  </Badge>
-                  {access?.isSuperAdmin ? (
-                    <Badge variant="outline">Super admin</Badge>
-                  ) : null}
-                </div>
-                {access?.email ? (
-                  <p className="mt-1 text-sm text-muted-foreground">{access.email}</p>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                onClick={() => void handleDownload()}
-                disabled={isDownloading}
-              >
-                <Download className="mr-2 size-4" />
-                {isDownloading ? 'Preparing export…' : 'Export Excel'}
-              </Button>
-              <Button variant="outline" onClick={() => void handleSignOut()}>
-                <LogOut className="mr-2 size-4" />
-                Sign out
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <main className="mx-auto max-w-[1400px] space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
           {loadError ? (
             <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               {loadError}
             </p>
           ) : null}
 
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <LayoutDashboard className="size-4 text-primary" />
-            <span>High Potential Assessment — live overview</span>
-          </div>
+          <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
 
           <AdminStatsOverview stats={stats} />
           <AdminSegmentBreakdown participants={participants} />

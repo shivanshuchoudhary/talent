@@ -23,9 +23,9 @@ function ChartCard({
 }) {
   return (
     <article
-      className={`rounded-xl border border-border bg-card p-5 shadow-sm ${className ?? ''}`}
+      className={`rounded-xl border border-border bg-card p-4 shadow-sm ${className ?? ''}`}
     >
-      <div className="mb-5 flex items-start gap-3">
+      <div className="mb-4 flex items-start gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           {icon}
         </div>
@@ -57,7 +57,7 @@ export function AdminInsightsPanel({ stats }: AdminInsightsPanelProps) {
   )
 
   return (
-    <section className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+    <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
       <ChartCard
         title="Assessment status"
         subtitle="How participants are distributed across the pipeline"
@@ -65,7 +65,7 @@ export function AdminInsightsPanel({ stats }: AdminInsightsPanelProps) {
         className="lg:col-span-1"
       >
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:justify-between">
-          <DonutChart slices={stats.statusBreakdown} size={188} />
+          <DonutChart slices={stats.statusBreakdown} size={160} />
           <div className="w-full min-w-0 sm:max-w-[220px]">
             <ChartLegend slices={stats.statusBreakdown} />
           </div>

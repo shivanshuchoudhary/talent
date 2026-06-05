@@ -1,13 +1,17 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { useState } from 'react'
 import { Button } from '#/components/ui/button'
 import { AdminDashboardNavLink } from '#/components/admin/AdminDashboardNavLink'
 import { useUserAccess } from '#/features/access/use-user-access'
+import { downloadSurveyExport } from '#/lib/admin-api'
 import { logoutMicrosoft } from '#/lib/msal-auth'
 import { useAssessmentStore } from '#/store/assessment-store'
+import { Download, LogOut } from 'lucide-react'
 
 export default function Header() {
   const { isLoggedIn, signOut, resetAssessment } = useAssessmentStore()
-  const { isAdmin, isLoading: isAccessLoading } = useUserAccess()
+  const { access, isAdmin, isLoading: isAccessLoading } = useUserAccess()
+  const [isDownloading, setIsDownloading] = useState(false)
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -25,8 +29,20 @@ export default function Header() {
     }
   }
 
+  const handleExport = async () => {
+    setIsDownloading(true)
+    try {
+      await downloadSurveyExport()
+    } catch (error) {
+      console.error('[Admin] Export failed:', error)
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   const showAdminDashboardLink =
     isAdmin && !isAccessLoading && !isSurveyLoginScreen && (isLoggedIn || isAdminRoute)
+  const showSignOut = isLoggedIn || (isAdminRoute && isAdmin)
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background px-4">
@@ -37,9 +53,30 @@ export default function Header() {
             alt="Sobha Ascend Logo"
             className="h-10 w-10 object-contain"
           />
-          <span className="text-2xl font-semibold text-primary">Sobha Ascend</span>
+          <span>
+            <span className="block text-xl font-semibold text-primary sm:text-2xl">
+              {isAdminRoute ? 'Assessment analytics' : 'Sobha Ascend'}
+            </span>
+            {isAdminRoute && access?.email ? (
+              <span className="block text-xs font-normal text-muted-foreground">
+                {access.email}
+              </span>
+            ) : null}
+          </span>
         </a>
         <div className="flex items-center gap-2">
+          {isAdminRoute && isAdmin ? (
+            <Button
+              size="sm"
+              onClick={() => void handleExport()}
+              disabled={isDownloading}
+            >
+              <Download className="size-4 sm:mr-2" />
+              <span className="hidden sm:inline">
+                {isDownloading ? 'Preparing export...' : 'Export Excel'}
+              </span>
+            </Button>
+          ) : null}
           {isAdminRoute && isAdmin ? (
             <Button variant="outline" size="sm" asChild>
               <Link to="/">Assessment</Link>
@@ -47,9 +84,10 @@ export default function Header() {
           ) : showAdminDashboardLink ? (
             <AdminDashboardNavLink variant="outline" />
           ) : null}
-          {isLoggedIn ? (
+          {showSignOut ? (
             <Button variant="outline" size="sm" onClick={() => void handleSignOut()}>
-              Sign out
+              <LogOut className="size-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sign out</span>
             </Button>
           ) : null}
         </div>
