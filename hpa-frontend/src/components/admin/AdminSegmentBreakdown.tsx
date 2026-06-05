@@ -220,7 +220,7 @@ export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownPro
   }, [entityOptions])
 
   return (
-    <section className="rounded-xl border border-border bg-card p-4 shadow-sm lg:w-1/2">
+    <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="mb-4 flex items-start gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Building2 className="size-4" />

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Button } from '#/components/ui/button'
 import { AuthHeroPanel } from '#/components/AuthHeroPanel'
-import { AdminInsightsPanel } from '#/components/admin/AdminInsightsPanel'
+import { AdminInsightsSidebar, AdminSubmissionActivity } from '#/components/admin/AdminInsightsPanel'
 import { AdminParticipantsSection } from '#/components/admin/AdminParticipantsSection'
 import { AdminSegmentBreakdown } from '#/components/admin/AdminSegmentBreakdown'
 import { AdminUserManagement } from '#/components/admin/AdminUserManagement'
@@ -48,8 +48,11 @@ export function AdminDashboard() {
           <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
 
           <AdminStatsOverview stats={stats} />
-          <AdminSegmentBreakdown participants={participants} />
-          <AdminInsightsPanel stats={stats} />
+          <div className="grid gap-5 lg:grid-cols-2">
+            <AdminSegmentBreakdown participants={participants} />
+            <AdminInsightsSidebar stats={stats} />
+          </div>
+          <AdminSubmissionActivity stats={stats} />
           {access?.isSuperAdmin ? <AdminUserManagement /> : null}
           <AdminParticipantsSection participants={participants} />
         </main>
