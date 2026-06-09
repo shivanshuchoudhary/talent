@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { AdminDashboardStats } from '#/lib/admin-analytics'
+import { ChartLegend, DonutChart } from '#/components/admin/AdminChartPrimitives'
 import {
   Award,
   CheckCircle2,
@@ -54,8 +55,13 @@ export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
         'relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6',
       )}
     >
-      <div className="flex items-start justify-between gap-6">
-        <div>
+      <div
+        className="pointer-events-none absolute -right-8 -top-8 size-40 rounded-full opacity-[0.06]"
+        style={{ backgroundColor: 'var(--primary)' }}
+      />
+
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Total registered
           </p>
@@ -68,43 +74,62 @@ export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
             </span>{' '}
             today
           </p>
-        </div>
-      </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <StatBadge
-          label="Completed"
-          value={stats.completed}
-          hint={`${stats.completionRate}%`}
-          icon={<CheckCircle2 className="size-3.5" />}
-          accent="oklch(0.55 0.14 155)"
-        />
-        <StatBadge
-          label="In progress"
-          value={stats.inProgress}
-          icon={<Clock className="size-3.5" />}
-          accent="oklch(0.55 0.14 210)"
-        />
-        <StatBadge
-          label="Timed out"
-          value={stats.timedOut}
-          icon={<TimerOff className="size-3.5" />}
-          accent="oklch(0.55 0.2 27)"
-        />
-        <StatBadge
-          label="Participation"
-          value={`${stats.participationRate}%`}
-          hint={`${stats.withSubmission} started`}
-          icon={<UserCheck className="size-3.5" />}
-          accent="var(--chart-2)"
-        />
-        <StatBadge
-          label="Avg. progress"
-          value={`${stats.avgProgressPercent}%`}
-          hint={`~${stats.avgQuestionsAnswered} of 40`}
-          icon={<Award className="size-3.5" />}
-          accent="var(--chart-1)"
-        />
+          <div className="mt-5 flex flex-wrap gap-2">
+            <StatBadge
+              label="Completed"
+              value={stats.completed}
+              hint={`${stats.completionRate}%`}
+              icon={<CheckCircle2 className="size-3.5" />}
+              accent="oklch(0.55 0.14 155)"
+            />
+            <StatBadge
+              label="In progress"
+              value={stats.inProgress}
+              icon={<Clock className="size-3.5" />}
+              accent="oklch(0.55 0.14 210)"
+            />
+            <StatBadge
+              label="Timed out"
+              value={stats.timedOut}
+              icon={<TimerOff className="size-3.5" />}
+              accent="oklch(0.55 0.2 27)"
+            />
+            <StatBadge
+              label="Participation"
+              value={`${stats.participationRate}%`}
+              hint={`${stats.withSubmission} started`}
+              icon={<UserCheck className="size-3.5" />}
+              accent="var(--chart-2)"
+            />
+            <StatBadge
+              label="Avg. progress"
+              value={`${stats.avgProgressPercent}%`}
+              hint={`~${stats.avgQuestionsAnswered} of 40`}
+              icon={<Award className="size-3.5" />}
+              accent="var(--chart-1)"
+            />
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-center gap-3 sm:flex-row lg:flex-col lg:items-end">
+          <DonutChart
+            slices={stats.statusBreakdown}
+            size={148}
+            centerLabel={
+              <span className="text-2xl font-semibold tabular-nums text-foreground">
+                {stats.completionRate}%
+              </span>
+            }
+            centerHint="completed"
+          />
+          <div className="w-full min-w-[180px] max-w-[220px]">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Assessment status
+            </p>
+            <ChartLegend slices={stats.statusBreakdown} />
+          </div>
+        </div>
       </div>
     </section>
   )

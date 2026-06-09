@@ -1,14 +1,54 @@
+import type { ReactNode } from 'react'
 import { cn } from '#/lib/utils'
 import type { CountSlice } from '#/lib/admin-analytics'
+
+function polarToCartesian(cx: number, cy: number, radius: number, angle: number) {
+  const radians = ((angle - 90) * Math.PI) / 180
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  }
+}
+
+function describeDonutSlice(
+  cx: number,
+  cy: number,
+  outerRadius: number,
+  innerRadius: number,
+  startAngle: number,
+  endAngle: number,
+) {
+  const startOuter = polarToCartesian(cx, cy, outerRadius, endAngle)
+  const endOuter = polarToCartesian(cx, cy, outerRadius, startAngle)
+  const startInner = polarToCartesian(cx, cy, innerRadius, startAngle)
+  const endInner = polarToCartesian(cx, cy, innerRadius, endAngle)
+  const largeArc = endAngle - startAngle <= 180 ? 0 : 1
+
+  return [
+    `M ${startOuter.x} ${startOuter.y}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArc} 0 ${endOuter.x} ${endOuter.y}`,
+    `L ${startInner.x} ${startInner.y}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArc} 1 ${endInner.x} ${endInner.y}`,
+    'Z',
+  ].join(' ')
+}
 
 type DonutChartProps = {
   slices: CountSlice[]
   size?: number
   className?: string
+  centerLabel?: ReactNode
+  centerHint?: string
 }
 
-export function DonutChart({ slices, size = 200, className }: DonutChartProps) {
-  const total = slices.reduce((sum, s) => sum + s.count, 0)
+export function DonutChart({
+  slices,
+  size = 200,
+  className,
+  centerLabel,
+  centerHint,
+}: DonutChartProps) {
+  const total = slices.reduce((sum, slice) => sum + slice.count, 0)
   if (total === 0) {
     return (
       <div
@@ -23,54 +63,44 @@ export function DonutChart({ slices, size = 200, className }: DonutChartProps) {
     )
   }
 
-  const radius = size / 2 - 12
   const cx = size / 2
   const cy = size / 2
-  const stroke = 28
-  const circumference = 2 * Math.PI * radius
-  let offset = 0
+  const outerRadius = size / 2 - 4
+  const innerRadius = outerRadius * 0.62
+  let currentAngle = 0
 
-  const arcs = slices.map((slice) => {
-    const fraction = slice.count / total
-    const dash = fraction * circumference
-    const arc = (
-      <circle
-        key={slice.label}
-        cx={cx}
-        cy={cy}
-        r={radius}
-        fill="none"
-        stroke={slice.color}
-        strokeWidth={stroke}
-        strokeDasharray={`${dash} ${circumference - dash}`}
-        strokeDashoffset={-offset}
-        transform={`rotate(-90 ${cx} ${cy})`}
-        className="transition-all duration-500"
-      />
-    )
-    offset += dash
-    return arc
-  })
+  const arcs = slices
+    .filter((slice) => slice.count > 0)
+    .map((slice) => {
+      const sweep = (slice.count / total) * 360
+      const startAngle = currentAngle
+      const endAngle = currentAngle + sweep
+      currentAngle = endAngle
+
+      return (
+        <path
+          key={slice.label}
+          d={describeDonutSlice(cx, cy, outerRadius, innerRadius, startAngle, endAngle)}
+          fill={slice.color}
+          className="transition-opacity duration-300 hover:opacity-90"
+        />
+      )
+    })
 
   return (
-    <div className={cn('relative inline-flex', className)}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle
-          cx={cx}
-          cy={cy}
-          r={radius}
-          fill="none"
-          stroke="var(--border)"
-          strokeWidth={stroke}
-          opacity={0.35}
-        />
+    <div className={cn('relative inline-flex shrink-0', className)}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
         {arcs}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-semibold tabular-nums text-foreground">
-          {total}
+        {centerLabel ?? (
+          <span className="text-3xl font-semibold tabular-nums text-foreground">
+            {total}
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground">
+          {centerHint ?? 'participants'}
         </span>
-        <span className="text-xs text-muted-foreground">participants</span>
       </div>
     </div>
   )
