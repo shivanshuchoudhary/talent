@@ -65,15 +65,48 @@ function countByField(
     }))
 }
 
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
 function isToday(dateValue: string): boolean {
   const date = new Date(dateValue)
   if (Number.isNaN(date.getTime())) return false
-  const today = new Date()
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  )
+  const today = startOfLocalDay(new Date())
+  const value = startOfLocalDay(date)
+  return value.getTime() === today.getTime()
+}
+
+export type SubmissionPeriod = 'yesterday' | 'last_3_days' | 'last_week'
+
+export function countSubmissionsInPeriod(
+  participants: AdminParticipant[],
+  period: SubmissionPeriod,
+): number {
+  const today = startOfLocalDay(new Date())
+  let start = today
+  let end = today
+
+  if (period === 'yesterday') {
+    start = new Date(today)
+    start.setDate(start.getDate() - 1)
+    end = start
+  } else if (period === 'last_3_days') {
+    start = new Date(today)
+    start.setDate(start.getDate() - 2)
+  } else {
+    start = new Date(today)
+    start.setDate(start.getDate() - 6)
+  }
+
+  return participants.filter((participant) => {
+    const submitted = participant.response?.submittedAt
+    if (!submitted) return false
+    const date = new Date(submitted)
+    if (Number.isNaN(date.getTime())) return false
+    const value = startOfLocalDay(date).getTime()
+    return value >= start.getTime() && value <= end.getTime()
+  }).length
 }
 
 function buildSubmissionsByDay(rows: AdminParticipant[]) {

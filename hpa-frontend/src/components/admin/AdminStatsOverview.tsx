@@ -1,136 +1,146 @@
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { AdminDashboardStats } from '#/lib/admin-analytics'
+import type { AdminParticipant } from '#/lib/admin-api'
+import type { AdminDashboardStats, SubmissionPeriod } from '#/lib/admin-analytics'
+import { countSubmissionsInPeriod } from '#/lib/admin-analytics'
 import { ChartLegend, DonutChart } from '#/components/admin/AdminChartPrimitives'
 import {
-  Award,
-  CheckCircle2,
-  Clock,
-  TimerOff,
-  UserCheck,
-} from 'lucide-react'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
+import { PieChart, UserCheck, Users } from 'lucide-react'
 import { cn } from '#/lib/utils'
 
-type StatBadgeProps = {
-  label: string
-  value: string | number
-  hint?: string
-  icon: ReactNode
-  accent: string
+const SUBMISSION_PERIOD_OPTIONS: { value: SubmissionPeriod; label: string }[] = [
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last_3_days', label: 'Last 3 days' },
+  { value: 'last_week', label: 'Last week' },
+]
+
+type OverviewCardProps = {
+  children: ReactNode
+  className?: string
 }
 
-function StatBadge({ label, value, hint, icon, accent }: StatBadgeProps) {
+function OverviewCard({ children, className }: OverviewCardProps) {
   return (
-    <div
-      className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 shadow-sm"
-      style={{ borderColor: `${accent}30` }}
+    <article
+      className={cn(
+        'relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm',
+        className,
+      )}
     >
-      <span
-        className="flex size-6 shrink-0 items-center justify-center rounded-full"
-        style={{
-          backgroundColor: `${accent}18`,
-          color: accent,
-        }}
-      >
-        {icon}
-      </span>
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-semibold tabular-nums text-foreground">
-        {value}
-      </span>
-      {hint ? (
-        <span className="text-xs tabular-nums text-muted-foreground">({hint})</span>
-      ) : null}
-    </div>
+      {children}
+    </article>
   )
 }
 
 type AdminStatsOverviewProps = {
   stats: AdminDashboardStats
+  participants: AdminParticipant[]
 }
 
-export function AdminStatsOverview({ stats }: AdminStatsOverviewProps) {
+export function AdminStatsOverview({ stats, participants }: AdminStatsOverviewProps) {
+  const [submissionPeriod, setSubmissionPeriod] =
+    useState<SubmissionPeriod>('last_3_days')
+
+  const submissionCount = useMemo(
+    () => countSubmissionsInPeriod(participants, submissionPeriod),
+    [participants, submissionPeriod],
+  )
+
   return (
-    <section
-      className={cn(
-        'relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6',
-      )}
-    >
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 size-40 rounded-full opacity-[0.06]"
-        style={{ backgroundColor: 'var(--primary)' }}
-      />
-
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-            Total registered
-          </p>
-          <p className="mt-1 text-5xl font-semibold tabular-nums tracking-tight">
-            {stats.totalParticipants}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            <span style={{ color: 'oklch(0.55 0.14 155)' }}>
-              +{stats.registeredToday}
-            </span>{' '}
-            today
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            <StatBadge
-              label="Completed"
-              value={stats.completed}
-              hint={`${stats.completionRate}%`}
-              icon={<CheckCircle2 className="size-3.5" />}
-              accent="oklch(0.55 0.14 155)"
-            />
-            <StatBadge
-              label="In progress"
-              value={stats.inProgress}
-              icon={<Clock className="size-3.5" />}
-              accent="oklch(0.55 0.14 210)"
-            />
-            <StatBadge
-              label="Timed out"
-              value={stats.timedOut}
-              icon={<TimerOff className="size-3.5" />}
-              accent="oklch(0.55 0.2 27)"
-            />
-            <StatBadge
-              label="Participation"
-              value={`${stats.participationRate}%`}
-              hint={`${stats.withSubmission} started`}
-              icon={<UserCheck className="size-3.5" />}
-              accent="var(--chart-2)"
-            />
-            <StatBadge
-              label="Avg. progress"
-              value={`${stats.avgProgressPercent}%`}
-              hint={`~${stats.avgQuestionsAnswered} of 40`}
-              icon={<Award className="size-3.5" />}
-              accent="var(--chart-1)"
-            />
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <OverviewCard>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Users className="size-4" />
           </div>
         </div>
+        <p className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Total registered
+        </p>
+        <p className="mt-1 text-4xl font-semibold tabular-nums tracking-tight">
+          {stats.totalParticipants}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          <span style={{ color: 'oklch(0.55 0.14 155)' }}>
+            +{stats.registeredToday}
+          </span>{' '}
+          today
+        </p>
+      </OverviewCard>
 
-        <div className="flex shrink-0 flex-col items-center gap-3 sm:flex-row lg:flex-col lg:items-end">
+      <OverviewCard>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Submission activity
+          </p>
+          <Select
+            value={submissionPeriod}
+            onValueChange={(value) => setSubmissionPeriod(value as SubmissionPeriod)}
+          >
+            <SelectTrigger size="sm" className="h-8 min-w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {SUBMISSION_PERIOD_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="mt-4 text-4xl font-semibold tabular-nums tracking-tight">
+          {submissionCount}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">submissions</p>
+      </OverviewCard>
+
+      <OverviewCard>
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <UserCheck className="size-4" />
+        </div>
+        <p className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Participation
+        </p>
+        <p className="mt-1 text-4xl font-semibold tabular-nums tracking-tight">
+          {stats.participationRate}%
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {stats.withSubmission} started the survey
+        </p>
+      </OverviewCard>
+
+      <OverviewCard>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <PieChart className="size-4" />
+          </div>
+        </div>
+        <p className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Assessment status
+        </p>
+        <div className="mt-3 flex items-center gap-4">
           <DonutChart
             slices={stats.statusBreakdown}
-            size={148}
+            size={100}
             centerLabel={
-              <span className="text-2xl font-semibold tabular-nums text-foreground">
+              <span className="text-lg font-semibold tabular-nums text-foreground">
                 {stats.completionRate}%
               </span>
             }
-            centerHint="completed"
+            centerHint="done"
           />
-          <div className="w-full min-w-[180px] max-w-[220px]">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Assessment status
-            </p>
+          <div className="min-w-0 flex-1">
             <ChartLegend slices={stats.statusBreakdown} />
           </div>
         </div>
-      </div>
+      </OverviewCard>
     </section>
   )
 }

@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react'
 import type { AdminDashboardStats } from '#/lib/admin-analytics'
-import {
-  HorizontalBarChart,
-  VerticalBarChart,
-} from '#/components/admin/AdminChartPrimitives'
+import { HorizontalBarChart } from '#/components/admin/AdminChartPrimitives'
 import { BarChart3, Layers } from 'lucide-react'
 
 function ChartCard({
@@ -62,19 +59,5 @@ export function AdminInsightsSidebar({ stats }: AdminInsightsPanelProps) {
         <HorizontalBarChart items={stats.progressBuckets} maxItems={6} />
       </ChartCard>
     </div>
-  )
-}
-
-export function AdminSubmissionActivity({ stats }: AdminInsightsPanelProps) {
-  if (stats.submissionsByDay.length === 0) return null
-
-  return (
-    <ChartCard
-      title="Submission activity"
-      subtitle="Submissions per day (last 14 days with data)"
-      icon={<BarChart3 className="size-4" />}
-    >
-      <VerticalBarChart items={stats.submissionsByDay} />
-    </ChartCard>
   )
 }

@@ -227,7 +227,7 @@ export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownPro
         </div>
         <div>
           <h2 className="text-lg font-semibold tracking-tight">
-            Entity & department analysis
+            Entity analysis
           </h2>
         </div>
       </div>
@@ -243,13 +243,13 @@ export function AdminSegmentBreakdown({ participants }: AdminSegmentBreakdownPro
             <TabsTrigger value="entity" className="flex-none justify-start">
               By entity
             </TabsTrigger>
-            <TabsTrigger
+            {/* <TabsTrigger
               value="department"
               disabled
               className="flex-none justify-start"
             >
               By department
-            </TabsTrigger>
+            </TabsTrigger> */}
           </TabsList>
           {dimension === 'entity' ? (
             <EntityTabsNav
