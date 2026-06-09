@@ -1,22 +1,27 @@
-const azureAuth = require("../config/azureAuth");
 const User = require("../models/User");
-const { USER_ROLES, isSuperAdminRole } = require("../constants/userRoles");
+const {
+  USER_ROLES,
+  isAdminRole,
+  isSuperAdminRole
+} = require("../constants/userRoles");
 
 function normalizeEmail(email) {
   return typeof email === "string" ? email.trim().toLowerCase() : "";
 }
 
-function isEnvProtectedAdmin(email) {
-  return (
-    azureAuth.superAdminEmails.has(email) || azureAuth.adminEmails.has(email)
-  );
+function normalizeAdminRole(role) {
+  if (role === USER_ROLES.SUPER_ADMIN) {
+    return USER_ROLES.SUPER_ADMIN;
+  }
+  return USER_ROLES.ADMIN;
 }
 
-function isEnvSuperAdmin(email) {
-  return azureAuth.superAdminEmails.has(email);
+async function countSuperAdmins() {
+  return User.countDocuments({ role: USER_ROLES.SUPER_ADMIN });
 }
 
-async function listAdminUsers() {
+async function listAdminUsers(actorEmail) {
+  const actor = normalizeEmail(actorEmail);
   const dbUsers = await User.find({
     role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] }
   })
@@ -24,74 +29,25 @@ async function listAdminUsers() {
     .sort({ role: 1, email: 1 })
     .lean();
 
-  const byEmail = new Map();
-
-  for (const user of dbUsers) {
+  return dbUsers.map((user) => {
     const email = normalizeEmail(user.email);
-    if (!email) continue;
-    byEmail.set(email, {
+    const isSelf = email === actor;
+    const isSuperAdmin = isSuperAdminRole(user.role);
+
+    return {
       email,
       name: user.name ?? "",
       role: user.role,
       source: "database",
-      canRemove: !isEnvProtectedAdmin(email) && !isSuperAdminRole(user.role),
+      canRemove: !isSelf,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    });
-  }
-
-  for (const email of azureAuth.superAdminEmails) {
-    if (!byEmail.has(email)) {
-      byEmail.set(email, {
-        email,
-        name: "",
-        role: USER_ROLES.SUPER_ADMIN,
-        source: "environment",
-        canRemove: false,
-        createdAt: null,
-        updatedAt: null
-      });
-    } else {
-      const entry = byEmail.get(email);
-      entry.source = "environment";
-      entry.canRemove = false;
-      entry.role = USER_ROLES.SUPER_ADMIN;
-    }
-  }
-
-  for (const email of azureAuth.adminEmails) {
-    if (azureAuth.superAdminEmails.has(email)) {
-      continue;
-    }
-    if (!byEmail.has(email)) {
-      byEmail.set(email, {
-        email,
-        name: "",
-        role: USER_ROLES.ADMIN,
-        source: "environment",
-        canRemove: false,
-        createdAt: null,
-        updatedAt: null
-      });
-    } else {
-      const entry = byEmail.get(email);
-      if (entry.source !== "environment") {
-        entry.source = "database";
-      }
-      entry.canRemove = false;
-    }
-  }
-
-  return [...byEmail.values()].sort((a, b) => {
-    if (a.role !== b.role) {
-      if (a.role === USER_ROLES.SUPER_ADMIN) return -1;
-      if (b.role === USER_ROLES.SUPER_ADMIN) return 1;
-    }
-    return a.email.localeCompare(b.email);
+      updatedAt: user.updatedAt,
+      isSuperAdmin
+    };
   });
 }
 
-async function addAdminUser(email, actorEmail) {
+async function addAdminUser(email, actorEmail, requestedRole = USER_ROLES.ADMIN) {
   const normalized = normalizeEmail(email);
   if (!normalized) {
     const error = new Error("A valid email address is required.");
@@ -99,9 +55,11 @@ async function addAdminUser(email, actorEmail) {
     throw error;
   }
 
+  const role = normalizeAdminRole(requestedRole);
   const existing = await User.findOne({ email: normalized }).select("role email");
-  if (existing && isSuperAdminRole(existing.role)) {
-    const error = new Error("This user is already a super admin.");
+  if (existing && isAdminRole(existing.role) && existing.role === role) {
+    const label = role === USER_ROLES.SUPER_ADMIN ? "super admin" : "admin";
+    const error = new Error(`This user is already a ${label}.`);
     error.statusCode = 400;
     throw error;
   }
@@ -111,7 +69,7 @@ async function addAdminUser(email, actorEmail) {
   const user = await User.findOneAndUpdate(
     { email: normalized },
     {
-      $set: { role: USER_ROLES.ADMIN },
+      $set: { role },
       $setOnInsert: {
         employeeCode: "ADMIN",
         name: displayName,
@@ -126,6 +84,7 @@ async function addAdminUser(email, actorEmail) {
 
   console.log("[Admin] Granted admin role:", {
     email: normalized,
+    role,
     by: actorEmail
   });
 
@@ -134,28 +93,22 @@ async function addAdminUser(email, actorEmail) {
     name: user.name,
     role: user.role,
     source: "database",
-    canRemove: !isEnvProtectedAdmin(normalized)
+    canRemove: normalizeEmail(actorEmail) !== normalized
   };
 }
 
 async function removeAdminUser(email, actorEmail) {
   const normalized = normalizeEmail(email);
+  const actor = normalizeEmail(actorEmail);
+
   if (!normalized) {
     const error = new Error("A valid email address is required.");
     error.statusCode = 400;
     throw error;
   }
 
-  if (normalized === normalizeEmail(actorEmail)) {
+  if (normalized === actor) {
     const error = new Error("You cannot remove your own admin access.");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (isEnvProtectedAdmin(normalized)) {
-    const error = new Error(
-      "This admin is defined in server environment variables and cannot be removed here."
-    );
     error.statusCode = 400;
     throw error;
   }
@@ -167,16 +120,19 @@ async function removeAdminUser(email, actorEmail) {
     throw error;
   }
 
-  if (isSuperAdminRole(user.role) || isEnvSuperAdmin(normalized)) {
-    const error = new Error("Super admin users cannot be removed via this screen.");
+  if (!isAdminRole(user.role)) {
+    const error = new Error("This user is not an admin.");
     error.statusCode = 400;
     throw error;
   }
 
-  if (user.role !== USER_ROLES.ADMIN) {
-    const error = new Error("This user is not an admin.");
-    error.statusCode = 400;
-    throw error;
+  if (isSuperAdminRole(user.role)) {
+    const superAdminCount = await countSuperAdmins();
+    if (superAdminCount <= 1) {
+      const error = new Error("Cannot remove the last super admin.");
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   user.role = USER_ROLES.USER;

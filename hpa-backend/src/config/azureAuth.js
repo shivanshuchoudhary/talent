@@ -13,8 +13,6 @@ function readConfig() {
   const clientId = process.env.AZURE_CLIENT_ID?.trim() ?? "";
   const authDisabled = process.env.AUTH_DISABLED === "true";
   const allowedEmailDomains = parseCsv(process.env.AZURE_ALLOWED_EMAIL_DOMAINS);
-  const adminEmails = new Set(parseCsv(process.env.AZURE_ADMIN_EMAILS));
-  const superAdminEmails = new Set(parseCsv(process.env.AZURE_SUPER_ADMIN_EMAILS));
   const isConfigured = Boolean(tenantId && clientId);
 
   return {
@@ -28,9 +26,7 @@ function readConfig() {
     jwksUri: tenantId
       ? `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`
       : "",
-    allowedEmailDomains,
-    adminEmails,
-    superAdminEmails
+    allowedEmailDomains
   };
 }
 

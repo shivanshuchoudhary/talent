@@ -15,20 +15,9 @@ function isAdminRole(role) {
   return role === USER_ROLES.ADMIN || isSuperAdminRole(role);
 }
 
-function resolveBootstrapRole(email, { superAdminEmails, adminEmails }) {
-  if (superAdminEmails.has(email)) {
-    return USER_ROLES.SUPER_ADMIN;
-  }
-  if (adminEmails.has(email)) {
-    return USER_ROLES.ADMIN;
-  }
-  return USER_ROLES.USER;
-}
-
 module.exports = {
   USER_ROLES,
   USER_ROLE_VALUES,
   isSuperAdminRole,
-  isAdminRole,
-  resolveBootstrapRole
+  isAdminRole
 };

@@ -15,23 +15,16 @@ async function resolveAdminAccess(email) {
     return {
       isAdmin: true,
       isSuperAdmin: true,
-      role: "admin"
+      role: "super_admin"
     };
   }
 
   const user = await User.findOne({ email }).select("role");
   const role = user?.role ?? "user";
-  const isDbAdmin = isAdminRole(role);
-  const isEnvBootstrapAdmin =
-    azureAuth.adminEmails.has(email) || azureAuth.superAdminEmails.has(email);
-
-  const isAdmin = isDbAdmin || isEnvBootstrapAdmin;
-  const isSuperAdmin =
-    isSuperAdminRole(role) || azureAuth.superAdminEmails.has(email);
 
   return {
-    isAdmin,
-    isSuperAdmin,
+    isAdmin: isAdminRole(role),
+    isSuperAdmin: isSuperAdminRole(role),
     role
   };
 }

@@ -15,11 +15,13 @@ export type AdminAccess = {
   role: string | null
 }
 
+export type AdminRole = 'admin' | 'super_admin'
+
 export type AdminUserRecord = {
   email: string
   name: string
-  role: string
-  source: 'database' | 'environment'
+  role: AdminRole
+  source: 'database'
   canRemove: boolean
   createdAt?: string | null
   updatedAt?: string | null
@@ -140,12 +142,16 @@ export async function fetchAdminUsers(
 
 export async function grantAdminAccess(
   email: string,
+  role: AdminRole = 'admin',
   preferredIdToken?: string | null,
 ): Promise<AdminUserRecord> {
   const response = await fetch(API_SURVEY_ADMIN_USERS_URL, {
     method: 'POST',
-    headers: await buildAuthHeaders(preferredIdToken),
-    body: JSON.stringify({ email }),
+    headers: {
+      ...(await buildAuthHeaders(preferredIdToken)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, role }),
   })
   const body = await response.json().catch(() => null)
   if (!response.ok) {

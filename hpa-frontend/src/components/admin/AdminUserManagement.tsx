@@ -4,11 +4,13 @@ import {
   fetchAdminUsers,
   grantAdminAccess,
   revokeAdminAccess,
+  type AdminRole,
   type AdminUserRecord,
 } from '#/lib/admin-api'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
+import { Label } from '#/components/ui/label'
 import {
   Table,
   TableBody,
@@ -34,6 +36,7 @@ function roleBadgeVariant(role: string): 'default' | 'secondary' | 'outline' {
 export function AdminUserManagement() {
   const [admins, setAdmins] = useState<AdminUserRecord[]>([])
   const [newEmail, setNewEmail] = useState('')
+  const [newRole, setNewRole] = useState<AdminRole>('admin')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -71,9 +74,12 @@ export function AdminUserManagement() {
     setError(null)
     setSuccess(null)
     try {
-      await grantAdminAccess(email)
+      await grantAdminAccess(email, newRole)
       setNewEmail('')
-      setSuccess(`${email} can now access the admin dashboard.`)
+      setNewRole('admin')
+      setSuccess(
+        `${email} can now access the admin dashboard as ${roleLabel(newRole).toLowerCase()}.`,
+      )
       await loadAdmins()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add admin.')
@@ -107,8 +113,8 @@ export function AdminUserManagement() {
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Admin access</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Grant or revoke dashboard access for colleagues. Super admins and
-              environment-configured admins cannot be removed here.
+              Super admins can grant or revoke admin and super admin roles. You cannot
+              remove your own access.
             </p>
           </div>
         </div>
@@ -117,12 +123,12 @@ export function AdminUserManagement() {
       <div className="space-y-6 px-5 py-6 sm:px-6">
         <form
           onSubmit={(e) => void handleAdd(e)}
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto] sm:items-end"
         >
-          <div className="flex-1">
-            <label htmlFor="admin-email" className="mb-1.5 block text-sm font-medium">
-              Add admin by email
-            </label>
+          <div>
+            <Label htmlFor="admin-email" className="mb-1.5 block">
+              Email
+            </Label>
             <Input
               id="admin-email"
               type="email"
@@ -132,13 +138,28 @@ export function AdminUserManagement() {
               disabled={isSubmitting}
             />
           </div>
+          <div>
+            <Label htmlFor="admin-role" className="mb-1.5 block">
+              Role
+            </Label>
+            <select
+              id="admin-role"
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as AdminRole)}
+              disabled={isSubmitting}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option value="admin">Admin</option>
+              <option value="super_admin">Super admin</option>
+            </select>
+          </div>
           <Button type="submit" disabled={isSubmitting} className="shrink-0">
             {isSubmitting ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
               <UserPlus className="mr-2 size-4" />
             )}
-            Add admin
+            Add user
           </Button>
         </form>
 
@@ -170,7 +191,6 @@ export function AdminUserManagement() {
                   <TableHead>Email</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Source</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -185,9 +205,6 @@ export function AdminUserManagement() {
                       <Badge variant={roleBadgeVariant(admin.role)}>
                         {roleLabel(admin.role)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm capitalize text-muted-foreground">
-                      {admin.source}
                     </TableCell>
                     <TableCell className="text-right">
                       {admin.canRemove ? (
@@ -205,7 +222,7 @@ export function AdminUserManagement() {
                           )}
                         </Button>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Protected</span>
+                        <span className="text-xs text-muted-foreground">You</span>
                       )}
                     </TableCell>
                   </TableRow>

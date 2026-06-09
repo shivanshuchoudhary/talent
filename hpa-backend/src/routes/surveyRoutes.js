@@ -8,7 +8,7 @@ const {
 } = require("../middleware/authMicrosoft");
 const { resolveSurveyUser, loadSurveyUserDocument } = require("../middleware/resolveSurveyUser");
 const azureAuth = require("../config/azureAuth");
-const { resolveBootstrapRole } = require("../constants/userRoles");
+const { USER_ROLES } = require("../constants/userRoles");
 const { resolveAdminAccess } = require("../services/resolveAdminAccess");
 const {
   buildSurveyExportBuffer,
@@ -103,11 +103,6 @@ router.post("/users/session", resolveSurveyUser, async (req, res) => {
       });
     }
 
-    const bootstrapRole = resolveBootstrapRole(email, {
-      superAdminEmails: azureAuth.superAdminEmails,
-      adminEmails: azureAuth.adminEmails
-    });
-
     const user = await User.findOneAndUpdate(
       { email },
       {
@@ -120,7 +115,7 @@ router.post("/users/session", resolveSurveyUser, async (req, res) => {
           entity: payload?.entity
         },
         $setOnInsert: {
-          role: bootstrapRole
+          role: USER_ROLES.USER
         }
       },
       {
@@ -315,9 +310,9 @@ router.get("/admin/participants", requireAdmin, async (_req, res) => {
   }
 });
 
-router.get("/admin/users", requireSuperAdmin, async (_req, res) => {
+router.get("/admin/users", requireSuperAdmin, async (req, res) => {
   try {
-    const admins = await listAdminUsers();
+    const admins = await listAdminUsers(req.auth?.email);
     return res.status(200).json({ data: admins });
   } catch (error) {
     console.error("[Survey][GET] /admin/users failed:", { error: error.message });
@@ -330,8 +325,9 @@ router.get("/admin/users", requireSuperAdmin, async (_req, res) => {
 
 router.post("/admin/users", requireSuperAdmin, async (req, res) => {
   const email = req.body?.email;
+  const role = req.body?.role;
   try {
-    const created = await addAdminUser(email, req.auth?.email);
+    const created = await addAdminUser(email, req.auth?.email, role);
     return res.status(201).json({
       message: "Admin access granted.",
       data: created
