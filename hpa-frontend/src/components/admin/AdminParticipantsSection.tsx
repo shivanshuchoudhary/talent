@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { AdminParticipant } from '#/lib/admin-api'
 import { filterParticipants } from '#/lib/admin-analytics'
+import { AdminParticipantGradeCell } from '#/components/admin/AdminParticipantGradeCell'
 import { Badge } from '#/components/ui/badge'
 import { Input } from '#/components/ui/input'
 import {
@@ -21,14 +22,6 @@ function statusVariant(status: string): 'default' | 'secondary' | 'destructive' 
   if (status === 'Timed out') return 'destructive'
   if (status.includes('progress')) return 'secondary'
   return 'outline'
-}
-
-function gradeClass(grade: string | null | undefined) {
-  if (!grade) return 'text-muted-foreground'
-  const g = grade.toUpperCase()
-  if (g === 'A+' || g === 'A') return 'font-semibold text-[oklch(0.5_0.14_155)]'
-  if (g.startsWith('B')) return 'font-semibold text-[oklch(0.5_0.14_210)]'
-  return 'font-medium'
 }
 
 function formatSubmittedAt(value: string | null | undefined) {
@@ -153,9 +146,7 @@ export function AdminParticipantsSection({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className={gradeClass(row.response?.letterGrade)}>
-                        {row.response?.letterGrade ?? '—'}
-                      </span>
+                      <AdminParticipantGradeCell participant={row} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                       {formatSubmittedAt(row.response?.submittedAt)}

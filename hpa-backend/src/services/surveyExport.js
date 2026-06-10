@@ -5,6 +5,7 @@ const {
   SURVEY_QUESTION_COUNT,
   CATEGORY_EXPORT_ORDER
 } = require("../constants/surveyQuestions");
+const { resolveEffectiveGrade } = require("./gradeResolution");
 
 function formatDate(value) {
   if (!value) {
@@ -77,6 +78,8 @@ function buildExportColumns() {
     { header: "Questions Answered", key: "questionsAnsweredCount", width: 18 },
     { header: "Remaining Seconds", key: "remainingSeconds", width: 18 },
     { header: "Letter Grade", key: "letterGrade", width: 14 },
+    { header: "Calculated Grade", key: "calculatedLetterGrade", width: 16 },
+    { header: "Grade Capped (Timeout)", key: "gradeCappedDueToTimeout", width: 22 },
     { header: "Submitted At", key: "submittedAt", width: 24 },
     { header: "Response Updated At", key: "responseUpdatedAt", width: 24 },
     { header: "User Created At", key: "userCreatedAt", width: 24 }
@@ -106,6 +109,16 @@ function buildExportColumns() {
 function buildExportRow(user, response) {
   const answerLookup = buildAnswerLookup(response?.questionsAnswered);
   const categoryLookup = buildCategoryLookup(response?.categoryResults);
+  const questionsAnsweredCount = Array.isArray(response?.questionsAnswered)
+    ? response.questionsAnswered.length
+    : 0;
+  const gradeResolution = resolveEffectiveGrade({
+    calculatedGrade: response?.categoryResults?.letterGrade ?? null,
+    timedOut: Boolean(response?.timedOut),
+    hasTimedOut: Boolean(user?.hasTimedOut),
+    isCompleted: Boolean(response?.isCompleted),
+    questionsAnsweredCount
+  });
 
   const row = {
     employeeCode: user?.employeeCode ?? "",
@@ -117,14 +130,14 @@ function buildExportRow(user, response) {
     status: resolveParticipantStatus(user, response),
     isCompleted: response?.isCompleted ? "Yes" : "No",
     timedOut: response?.timedOut ? "Yes" : "No",
-    questionsAnsweredCount: Array.isArray(response?.questionsAnswered)
-      ? response.questionsAnswered.length
-      : 0,
+    questionsAnsweredCount,
     remainingSeconds:
       response?.remainingSeconds === null || response?.remainingSeconds === undefined
         ? ""
         : response.remainingSeconds,
-    letterGrade: response?.categoryResults?.letterGrade ?? "",
+    letterGrade: gradeResolution.effectiveLetterGrade ?? "",
+    calculatedLetterGrade: gradeResolution.calculatedLetterGrade ?? "",
+    gradeCappedDueToTimeout: gradeResolution.cappedDueToTimeout ? "Yes" : "No",
     submittedAt: formatDate(response?.submittedAt),
     responseUpdatedAt: formatDate(response?.updatedAt),
     userCreatedAt: formatDate(user?.createdAt)
@@ -243,6 +256,17 @@ async function buildAdminParticipants() {
   return users.map((user) => {
     const userId = user._id.toString();
     const response = responseByUserId.get(userId) ?? null;
+    const questionsAnsweredCount = Array.isArray(response?.questionsAnswered)
+      ? response.questionsAnswered.length
+      : 0;
+    const gradeResolution = resolveEffectiveGrade({
+      calculatedGrade: response?.categoryResults?.letterGrade ?? null,
+      timedOut: Boolean(response?.timedOut),
+      hasTimedOut: Boolean(user.hasTimedOut),
+      isCompleted: Boolean(response?.isCompleted),
+      questionsAnsweredCount
+    });
+
     return {
       user: {
         id: userId,
@@ -262,10 +286,11 @@ async function buildAdminParticipants() {
             id: response._id.toString(),
             isCompleted: response.isCompleted,
             timedOut: response.timedOut,
-            questionsAnsweredCount: Array.isArray(response.questionsAnswered)
-              ? response.questionsAnswered.length
-              : 0,
+            questionsAnsweredCount,
             letterGrade: response.categoryResults?.letterGrade ?? null,
+            calculatedLetterGrade: gradeResolution.calculatedLetterGrade,
+            effectiveLetterGrade: gradeResolution.effectiveLetterGrade,
+            cappedDueToTimeout: gradeResolution.cappedDueToTimeout,
             categoryResults: response.categoryResults
               ? {
                   letterGrade: response.categoryResults.letterGrade ?? null,

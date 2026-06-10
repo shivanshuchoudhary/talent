@@ -1,5 +1,6 @@
 import type { AdminParticipant } from '#/lib/admin-api'
 import { questions } from '#/lib/assessment'
+import { getParticipantGrades } from '#/lib/grade-resolution'
 
 const TOTAL_QUESTIONS = questions.length
 
@@ -171,16 +172,20 @@ export function computeAdminDashboardStats(
     .filter((slice) => slice.count > 0)
 
   const gradeOrder = ['A+', 'A', 'B']
-  const graded = participants.filter((p) => p.response?.letterGrade)
+  const graded = participants.filter((p) => getParticipantGrades(p).effectiveLetterGrade)
   const gradeBreakdown = [
     ...gradeOrder.map((label) => ({
       label,
-      count: graded.filter((p) => p.response?.letterGrade === label).length,
+      count: graded.filter(
+        (p) => getParticipantGrades(p).effectiveLetterGrade === label,
+      ).length,
       color: GRADE_COLORS[label] ?? 'var(--chart-3)',
     })),
     {
       label: 'Not graded',
-      count: participants.filter((p) => !p.response?.letterGrade && p.response).length,
+      count: participants.filter(
+        (p) => !getParticipantGrades(p).effectiveLetterGrade && p.response,
+      ).length,
       color: GRADE_COLORS['Not graded'],
     },
     {
@@ -251,6 +256,7 @@ export function filterParticipants(
       return false
     }
     if (!q) return true
+    const grades = getParticipantGrades(row)
     const haystack = [
       row.user.name,
       row.user.email,
@@ -258,7 +264,8 @@ export function filterParticipants(
       row.user.Department,
       row.user.entity,
       row.status,
-      row.response?.letterGrade ?? '',
+      grades.effectiveLetterGrade ?? '',
+      grades.calculatedLetterGrade ?? '',
     ]
       .join(' ')
       .toLowerCase()
@@ -319,13 +326,15 @@ export function computeSegmentInsights(
   const rows = filterParticipantsBySegment(participants, dimension, segment)
   const participantCount = rows.length
   const withSubmission = rows.filter((row) => row.response).length
-  const graded = rows.filter((row) => row.response?.letterGrade)
+  const graded = rows.filter((row) => getParticipantGrades(row).effectiveLetterGrade)
   const gradedCount = graded.length
 
   const gradeOrder = ['A+', 'A', 'B'] as const
   const gradeDistribution: CountSlice[] = gradeOrder.map((label) => ({
     label,
-    count: graded.filter((row) => row.response?.letterGrade === label).length,
+    count: graded.filter(
+      (row) => getParticipantGrades(row).effectiveLetterGrade === label,
+    ).length,
     color: GRADE_COLORS[label] ?? 'var(--chart-3)',
   }))
 

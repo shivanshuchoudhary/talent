@@ -47,6 +47,9 @@ export type AdminParticipant = {
     timedOut: boolean
     questionsAnsweredCount: number
     letterGrade: string | null
+    calculatedLetterGrade?: string | null
+    effectiveLetterGrade?: string | null
+    cappedDueToTimeout?: boolean
     categoryResults: {
       letterGrade: string | null
       categories: Array<{
