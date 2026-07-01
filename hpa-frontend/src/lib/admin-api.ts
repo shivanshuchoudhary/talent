@@ -3,6 +3,8 @@ import {
   API_SURVEY_ADMIN_USERS_URL,
   API_SURVEY_EXPORT_URL,
   API_SURVEY_ME_URL,
+  apiSurveyAdminParticipantUrl,
+  apiSurveyAdminParticipantResetSurveyUrl,
   apiSurveyAdminUserUrl,
 } from '#/lib/api'
 import { getMicrosoftAuthToken } from '#/lib/msal-auth'
@@ -178,6 +180,38 @@ export async function revokeAdminAccess(
   const body = await response.json().catch(() => null)
   if (!response.ok) {
     throw new Error(await readApiErrorMessage(response, body, 'Failed to remove admin.'))
+  }
+}
+
+export async function deleteParticipant(
+  userId: string,
+  preferredIdToken?: string | null,
+): Promise<void> {
+  const response = await fetch(apiSurveyAdminParticipantUrl(userId), {
+    method: 'DELETE',
+    headers: await buildAuthHeaders(preferredIdToken),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(
+      await readApiErrorMessage(response, body, 'Failed to delete participant.'),
+    )
+  }
+}
+
+export async function resetParticipantSurvey(
+  userId: string,
+  preferredIdToken?: string | null,
+): Promise<void> {
+  const response = await fetch(apiSurveyAdminParticipantResetSurveyUrl(userId), {
+    method: 'POST',
+    headers: await buildAuthHeaders(preferredIdToken),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(
+      await readApiErrorMessage(response, body, 'Failed to reset survey.'),
+    )
   }
 }
 

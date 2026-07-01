@@ -20,6 +20,7 @@ const {
   addAdminUser,
   removeAdminUser
 } = require("../services/adminUsers");
+const { deleteParticipant, resetParticipantSurvey } = require("../services/adminParticipants");
 
 const router = express.Router();
 
@@ -305,6 +306,48 @@ router.get("/admin/participants", requireAdmin, async (_req, res) => {
     });
     return res.status(500).json({
       message: "Failed to fetch participants.",
+      error: error.message
+    });
+  }
+});
+
+router.delete("/admin/participants/:userId", requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId ?? "";
+  try {
+    const result = await deleteParticipant(userId, req.auth?.email);
+    return res.status(200).json({
+      message: "Participant deleted.",
+      data: result
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 500;
+    console.error("[Survey][DELETE] /admin/participants failed:", {
+      userId,
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to delete participant.",
+      error: error.message
+    });
+  }
+});
+
+router.post("/admin/participants/:userId/reset-survey", requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId ?? "";
+  try {
+    const result = await resetParticipantSurvey(userId, req.auth?.email);
+    return res.status(200).json({
+      message: "Survey reset. Participant can retake the assessment.",
+      data: result
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 500;
+    console.error("[Survey][POST] /admin/participants/reset-survey failed:", {
+      userId,
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to reset survey.",
       error: error.message
     });
   }

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import type { AdminParticipant } from '#/lib/admin-api'
+import { deleteParticipant, resetParticipantSurvey, type AdminParticipant } from '#/lib/admin-api'
 import { filterParticipants } from '#/lib/admin-analytics'
 import { AdminParticipantGradeCell } from '#/components/admin/AdminParticipantGradeCell'
 import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import {
   Table,
@@ -12,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
-import { Search } from 'lucide-react'
+import { Loader2, RotateCcw, Search, Trash2 } from 'lucide-react'
 import { questions } from '#/lib/assessment'
 
 const TOTAL_QUESTIONS = questions.length
@@ -45,18 +46,63 @@ const STATUS_FILTERS = [
 
 type AdminParticipantsSectionProps = {
   participants: AdminParticipant[]
+  isSuperAdmin?: boolean
+  onParticipantDeleted?: () => void | Promise<void>
 }
 
 export function AdminParticipantsSection({
   participants,
+  isSuperAdmin = false,
+  onParticipantDeleted,
 }: AdminParticipantsSectionProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const filtered = useMemo(
     () => filterParticipants(participants, search, statusFilter),
     [participants, search, statusFilter],
   )
+
+  const handleDelete = async (row: AdminParticipant) => {
+    const label = row.user.name || row.user.email
+    const confirmed = window.confirm(
+      `Delete ${label}?\n\nThis permanently removes their profile and survey data. They can register again from scratch.`,
+    )
+    if (!confirmed) return
+
+    setDeletingUserId(row.user.id)
+    setActionError(null)
+    try {
+      await deleteParticipant(row.user.id)
+      await onParticipantDeleted?.()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete participant.')
+    } finally {
+      setDeletingUserId(null)
+    }
+  }
+
+  const handleResetSurvey = async (row: AdminParticipant) => {
+    const label = row.user.name || row.user.email
+    const confirmed = window.confirm(
+      `Reset survey for ${label}?\n\nTheir profile stays registered. All answers and grades are removed so they can take the assessment again.`,
+    )
+    if (!confirmed) return
+
+    setResettingUserId(row.user.id)
+    setActionError(null)
+    try {
+      await resetParticipantSurvey(row.user.id)
+      await onParticipantDeleted?.()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to reset survey.')
+    } finally {
+      setResettingUserId(null)
+    }
+  }
 
   return (
     <section className="rounded-xl border border-border bg-card shadow-sm">
@@ -66,6 +112,7 @@ export function AdminParticipantsSection({
             <h2 className="text-lg font-semibold tracking-tight">Participants</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Showing {filtered.length} of {participants.length} records
+              {isSuperAdmin ? ' · Super admins can reset or delete records' : null}
             </p>
           </div>
           <div className="relative w-full sm:max-w-xs">
@@ -96,6 +143,12 @@ export function AdminParticipantsSection({
         </div>
       </div>
 
+      {actionError ? (
+        <p className="mx-5 mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive sm:mx-6">
+          {actionError}
+        </p>
+      ) : null}
+
       {filtered.length === 0 ? (
         <p className="px-6 py-12 text-center text-sm text-muted-foreground">
           No participants match your filters.
@@ -112,6 +165,7 @@ export function AdminParticipantsSection({
                 <TableHead>Progress</TableHead>
                 <TableHead>Grade</TableHead>
                 <TableHead>Submitted</TableHead>
+                {isSuperAdmin ? <TableHead className="text-right">Actions</TableHead> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -151,6 +205,46 @@ export function AdminParticipantsSection({
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                       {formatSubmittedAt(row.response?.submittedAt)}
                     </TableCell>
+                    {isSuperAdmin ? (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-foreground"
+                            disabled={
+                              resettingUserId === row.user.id || deletingUserId === row.user.id
+                            }
+                            aria-label={`Reset survey for ${row.user.name}`}
+                            title="Reset survey (keep profile)"
+                            onClick={() => void handleResetSurvey(row)}
+                          >
+                            {resettingUserId === row.user.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="size-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            disabled={
+                              deletingUserId === row.user.id || resettingUserId === row.user.id
+                            }
+                            aria-label={`Delete ${row.user.name}`}
+                            title="Delete participant"
+                            onClick={() => void handleDelete(row)}
+                          >
+                            {deletingUserId === row.user.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 )
               })}

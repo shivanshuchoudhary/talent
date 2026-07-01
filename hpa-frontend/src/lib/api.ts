@@ -8,6 +8,7 @@ export const SURVEY_API_PATHS = {
   responseStatus: '/api/surveys/responses/status',
   me: '/api/surveys/me',
   adminParticipants: '/api/surveys/admin/participants',
+  adminParticipant: '/api/surveys/admin/participants',
   adminUsers: '/api/surveys/admin/users',
   exportResponses: '/api/surveys/responses/export',
 } as const
@@ -52,6 +53,20 @@ export const API_SURVEY_ME_URL = resolveUrl(SURVEY_API_PATHS.me)
 export const API_SURVEY_ADMIN_PARTICIPANTS_URL = resolveUrl(
   SURVEY_API_PATHS.adminParticipants,
 )
+
+/** DELETE — super admin: remove participant and survey data */
+export function apiSurveyAdminParticipantUrl(userId: string): string {
+  return resolveUrl(
+    `${SURVEY_API_PATHS.adminParticipant}/${encodeURIComponent(userId)}`,
+  )
+}
+
+/** POST — super admin: clear survey so participant can retake */
+export function apiSurveyAdminParticipantResetSurveyUrl(userId: string): string {
+  return resolveUrl(
+    `${SURVEY_API_PATHS.adminParticipant}/${encodeURIComponent(userId)}/reset-survey`,
+  )
+}
 
 /** GET — admin Excel export */
 export const API_SURVEY_EXPORT_URL = resolveUrl(SURVEY_API_PATHS.exportResponses)

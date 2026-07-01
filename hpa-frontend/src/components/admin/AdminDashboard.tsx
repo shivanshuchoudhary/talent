@@ -22,6 +22,7 @@ export function AdminDashboard() {
     isAdmin,
     isMsalConfigured,
     handleLogin,
+    reloadParticipants,
   } = useAdminPage()
 
   const stats = useMemo(
@@ -53,7 +54,11 @@ export function AdminDashboard() {
             <AdminInsightsSidebar stats={stats} />
           </div>
           {access?.isSuperAdmin ? <AdminUserManagement /> : null}
-          <AdminParticipantsSection participants={participants} />
+          <AdminParticipantsSection
+            participants={participants}
+            isSuperAdmin={Boolean(access?.isSuperAdmin)}
+            onParticipantDeleted={reloadParticipants}
+          />
         </main>
       </div>
     )

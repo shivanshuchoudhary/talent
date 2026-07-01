@@ -53,6 +53,17 @@ export function useAdminPage() {
     [],
   )
 
+  const reloadParticipants = useCallback(async () => {
+    try {
+      const rows = await fetchAdminParticipants()
+      setParticipants(rows)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to refresh participants.'
+      setLoadError(message)
+    }
+  }, [])
+
   useEffect(() => {
     if (!isMsalConfigured()) {
       setAuthError(
@@ -138,5 +149,6 @@ export function useAdminPage() {
     handleLogin,
     handleSignOut,
     handleDownload,
+    reloadParticipants,
   }
 }
