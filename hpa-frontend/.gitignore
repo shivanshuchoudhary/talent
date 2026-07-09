@@ -4,6 +4,9 @@ dist
 dist-ssr
 *.local
 .env
+.env.local
+.env.example
+.env.production.local.example
 .nitro
 .tanstack
 .wrangler
@@ -11,3 +14,4 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+package-lock.json
