@@ -15,7 +15,7 @@ export default function Header() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
-  const isAdminRoute = pathname === '/admin'
+  const isAdminRoute = pathname.startsWith('/admin')
   const isSurveyLoginScreen = pathname === '/' && !isLoggedIn
 
   const handleSignOut = async () => {

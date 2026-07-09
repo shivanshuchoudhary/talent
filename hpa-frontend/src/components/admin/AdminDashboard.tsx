@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { Button } from '#/components/ui/button'
 import { AuthHeroPanel } from '#/components/AuthHeroPanel'
@@ -46,7 +47,12 @@ export function AdminDashboard() {
             </p>
           ) : null}
 
-          <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
+            <Button variant="outline" asChild>
+              <Link to="/admin/managers">Managers dashboard</Link>
+            </Button>
+          </div>
 
           <AdminStatsOverview stats={stats} participants={participants} />
           <div className="grid gap-5 lg:grid-cols-2">
