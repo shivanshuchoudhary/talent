@@ -54,14 +54,14 @@ export const API_SURVEY_ADMIN_PARTICIPANTS_URL = resolveUrl(
   SURVEY_API_PATHS.adminParticipants,
 )
 
-/** DELETE — super admin: remove participant and survey data */
+/** DELETE — admin: remove participant and survey data */
 export function apiSurveyAdminParticipantUrl(userId: string): string {
   return resolveUrl(
     `${SURVEY_API_PATHS.adminParticipant}/${encodeURIComponent(userId)}`,
   )
 }
 
-/** POST — super admin: clear survey so participant can retake */
+/** POST — admin: clear survey so participant can retake */
 export function apiSurveyAdminParticipantResetSurveyUrl(userId: string): string {
   return resolveUrl(
     `${SURVEY_API_PATHS.adminParticipant}/${encodeURIComponent(userId)}/reset-survey`,

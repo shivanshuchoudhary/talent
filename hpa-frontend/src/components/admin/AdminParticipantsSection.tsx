@@ -46,13 +46,11 @@ const STATUS_FILTERS = [
 
 type AdminParticipantsSectionProps = {
   participants: AdminParticipant[]
-  isSuperAdmin?: boolean
   onParticipantDeleted?: () => void | Promise<void>
 }
 
 export function AdminParticipantsSection({
   participants,
-  isSuperAdmin = false,
   onParticipantDeleted,
 }: AdminParticipantsSectionProps) {
   const [search, setSearch] = useState('')
@@ -111,8 +109,8 @@ export function AdminParticipantsSection({
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Participants</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Showing {filtered.length} of {participants.length} records
-              {isSuperAdmin ? ' · Super admins can reset or delete records' : null}
+              Showing {filtered.length} of {participants.length} records · Reset or
+              delete to let someone retake
             </p>
           </div>
           <div className="relative w-full sm:max-w-xs">
@@ -165,7 +163,7 @@ export function AdminParticipantsSection({
                 <TableHead>Progress</TableHead>
                 <TableHead>Grade</TableHead>
                 <TableHead>Submitted</TableHead>
-                {isSuperAdmin ? <TableHead className="text-right">Actions</TableHead> : null}
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -205,46 +203,44 @@ export function AdminParticipantsSection({
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                       {formatSubmittedAt(row.response?.submittedAt)}
                     </TableCell>
-                    {isSuperAdmin ? (
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-muted-foreground hover:text-foreground"
-                            disabled={
-                              resettingUserId === row.user.id || deletingUserId === row.user.id
-                            }
-                            aria-label={`Reset survey for ${row.user.name}`}
-                            title="Reset survey (keep profile)"
-                            onClick={() => void handleResetSurvey(row)}
-                          >
-                            {resettingUserId === row.user.id ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <RotateCcw className="size-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            disabled={
-                              deletingUserId === row.user.id || resettingUserId === row.user.id
-                            }
-                            aria-label={`Delete ${row.user.name}`}
-                            title="Delete participant"
-                            onClick={() => void handleDelete(row)}
-                          >
-                            {deletingUserId === row.user.id ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="size-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    ) : null}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground"
+                          disabled={
+                            resettingUserId === row.user.id || deletingUserId === row.user.id
+                          }
+                          aria-label={`Reset survey for ${row.user.name}`}
+                          title="Reset survey (keep profile)"
+                          onClick={() => void handleResetSurvey(row)}
+                        >
+                          {resettingUserId === row.user.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <RotateCcw className="size-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          disabled={
+                            deletingUserId === row.user.id || resettingUserId === row.user.id
+                          }
+                          aria-label={`Delete ${row.user.name}`}
+                          title="Delete participant"
+                          onClick={() => void handleDelete(row)}
+                        >
+                          {deletingUserId === row.user.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 )
               })}

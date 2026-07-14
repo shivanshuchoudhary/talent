@@ -311,7 +311,7 @@ router.get("/admin/participants", requireAdmin, async (_req, res) => {
   }
 });
 
-router.delete("/admin/participants/:userId", requireSuperAdmin, async (req, res) => {
+router.delete("/admin/participants/:userId", requireAdmin, async (req, res) => {
   const userId = req.params.userId ?? "";
   try {
     const result = await deleteParticipant(userId, req.auth?.email);
@@ -332,7 +332,7 @@ router.delete("/admin/participants/:userId", requireSuperAdmin, async (req, res)
   }
 });
 
-router.post("/admin/participants/:userId/reset-survey", requireSuperAdmin, async (req, res) => {
+router.post("/admin/participants/:userId/reset-survey", requireAdmin, async (req, res) => {
   const userId = req.params.userId ?? "";
   try {
     const result = await resetParticipantSurvey(userId, req.auth?.email);

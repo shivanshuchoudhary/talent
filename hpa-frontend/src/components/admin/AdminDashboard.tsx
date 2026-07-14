@@ -62,7 +62,6 @@ export function AdminDashboard() {
           {access?.isSuperAdmin ? <AdminUserManagement /> : null}
           <AdminParticipantsSection
             participants={participants}
-            isSuperAdmin={Boolean(access?.isSuperAdmin)}
             onParticipantDeleted={reloadParticipants}
           />
         </main>
