@@ -29,9 +29,10 @@ function formatSubmittedAt(value: string | null | undefined) {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   })
 }
 
@@ -117,7 +118,7 @@ export function AdminParticipantsSection({
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
-              placeholder="Search name, email, department…"
+              placeholder="Search name, email…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -156,14 +157,13 @@ export function AdminParticipantsSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Entity</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Grade</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="px-3">Employee</TableHead>
+                <TableHead className="px-3 text-center">Entity</TableHead>
+                <TableHead className="px-3 text-center">Status</TableHead>
+                <TableHead className="px-3 text-center">Progress</TableHead>
+                <TableHead className="px-3 text-center">Grade</TableHead>
+                <TableHead className="px-3 text-center">Submitted</TableHead>
+                <TableHead className="px-3 text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -172,24 +172,22 @@ export function AdminParticipantsSection({
                 const progressPct = Math.round((answered / TOTAL_QUESTIONS) * 100)
                 return (
                   <TableRow key={row.user.id}>
-                    <TableCell>
-                      <div className="font-medium">{row.user.name}</div>
+                    <TableCell className="px-3 text-left">
+                      <div className="font-medium leading-tight">{row.user.name}</div>
                       <div className="text-xs text-muted-foreground">{row.user.email}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.user.employeeCode}
-                      </div>
                     </TableCell>
-                    <TableCell className="text-sm">{row.user.Department || '—'}</TableCell>
-                    <TableCell className="text-sm">{row.user.entity || '—'}</TableCell>
-                    <TableCell>
+                    <TableCell className="px-3 text-center text-sm">
+                      {row.user.entity || '—'}
+                    </TableCell>
+                    <TableCell className="px-3 text-center">
                       <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex min-w-[100px] flex-col gap-1">
+                    <TableCell className="px-3 text-center">
+                      <div className="mx-auto flex w-16 flex-col items-center gap-1">
                         <span className="text-xs tabular-nums text-muted-foreground">
-                          {answered}/{TOTAL_QUESTIONS} ({progressPct}%)
+                          {answered}/{TOTAL_QUESTIONS}
                         </span>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                           <div
                             className="h-full rounded-full bg-primary/80 transition-all"
                             style={{ width: `${progressPct}%` }}
@@ -197,14 +195,16 @@ export function AdminParticipantsSection({
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <AdminParticipantGradeCell participant={row} />
+                    <TableCell className="px-3 text-center">
+                      <div className="flex justify-center">
+                        <AdminParticipantGradeCell participant={row} />
+                      </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                    <TableCell className="px-3 text-center text-sm whitespace-nowrap text-muted-foreground">
                       {formatSubmittedAt(row.response?.submittedAt)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <TableCell className="px-3 text-center">
+                      <div className="flex items-center justify-center gap-0.5">
                         <Button
                           variant="ghost"
                           size="sm"
