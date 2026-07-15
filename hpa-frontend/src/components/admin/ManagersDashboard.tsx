@@ -310,7 +310,13 @@ export function ManagersDashboard() {
       setCsvText('')
       setCsvHeaders([])
       setSuccess(
-        `Import done for ${result.level}: ${result.imported} added, ${result.updated} updated, ${result.skipped} skipped.`,
+        `Import done for ${result.level}: ${result.imported} added, ${result.updated} updated, ${result.skipped} skipped.` +
+          (result.errors?.length
+            ? ` First issues: ${result.errors
+                .slice(0, 3)
+                .map((e) => `line ${e.line} — ${e.message}`)
+                .join('; ')}`
+            : ''),
       )
       await loadManagers()
     } catch (err) {

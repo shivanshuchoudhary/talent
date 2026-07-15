@@ -10,6 +10,7 @@ const {
 
 function normalizeKey(value) {
   return String(value ?? "")
+    .replace(/\u00a0/g, " ")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
@@ -18,16 +19,6 @@ function normalizeKey(value) {
 function normalizeStatus(raw) {
   const value = normalizeKey(raw);
   if (!value) return null;
-
-  if (
-    value === "completed" ||
-    value === "complete" ||
-    value === "yes" ||
-    value === "true" ||
-    value === "1"
-  ) {
-    return MANAGER_STATUSES.COMPLETED;
-  }
 
   if (
     value === "in progress" ||
@@ -43,6 +34,7 @@ function normalizeStatus(raw) {
     value === "not_completed" ||
     value === "notcompleted" ||
     value === "incomplete" ||
+    value === "not complete" ||
     value === "no" ||
     value === "false" ||
     value === "0"
@@ -50,25 +42,55 @@ function normalizeStatus(raw) {
     return MANAGER_STATUSES.NOT_COMPLETED;
   }
 
+  if (
+    value === "completed" ||
+    value === "complete" ||
+    value === "yes" ||
+    value === "true" ||
+    value === "1"
+  ) {
+    return MANAGER_STATUSES.COMPLETED;
+  }
+
   return null;
 }
 
 function normalizeRating(raw) {
-  const value = String(raw ?? "").trim().toUpperCase();
+  const value = String(raw ?? "")
+    .replace(/\u00a0/g, " ")
+    .trim()
+    .toUpperCase();
   if (value === "A" || value === "B" || value === "-") {
     return value;
   }
-  if (value === "–" || value === "—" || value === "N/A" || value === "NA" || value === "") {
+  if (
+    value === "–" ||
+    value === "—" ||
+    value === "N/A" ||
+    value === "NA" ||
+    value === "" ||
+    value === "."
+  ) {
     return "-";
   }
   return null;
 }
 
 function normalizeAverageRating(raw) {
-  if (raw === null || raw === undefined || String(raw).trim() === "") {
-    return null;
+  const text = String(raw ?? "")
+    .replace(/\u00a0/g, " ")
+    .trim();
+  if (
+    text === "" ||
+    text === "-" ||
+    text === "–" ||
+    text === "—" ||
+    text.toUpperCase() === "N/A" ||
+    text.toUpperCase() === "NA"
+  ) {
+    return 0;
   }
-  const num = Number.parseFloat(String(raw).trim().replace(",", "."));
+  const num = Number.parseFloat(text.replace(",", "."));
   if (!Number.isFinite(num) || num < 0 || num > 5) {
     return null;
   }
