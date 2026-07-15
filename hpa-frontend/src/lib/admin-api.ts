@@ -91,7 +91,7 @@ export type ManagerRecord = {
 }
 
 export type ManagerColumnMap = {
-  employeeCode: string
+  employeeCode?: string
   name?: string
   status?: string
   averageRating?: string

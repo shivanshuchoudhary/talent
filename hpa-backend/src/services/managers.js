@@ -148,32 +148,20 @@ async function listManagers(level) {
 }
 
 function validateCreatePayload(payload) {
-  const employeeCode = String(payload?.employeeCode ?? "").trim();
+  let employeeCode = String(payload?.employeeCode ?? "").trim();
+  if (isBlankCell(employeeCode)) {
+    employeeCode = `MANUAL-${Date.now()}`;
+  }
   const name = String(payload?.name ?? "").trim();
-  const entity = String(payload?.entity ?? "").trim();
-  const functionName = String(payload?.function ?? "").trim();
+  const entity = normalizeOptionalText(payload?.entity, "Unknown");
+  const functionName = normalizeOptionalText(payload?.function, "Unknown");
   const status = String(payload?.status ?? "").trim();
   const rating = normalizeRating(payload?.rating);
   const level = String(payload?.level ?? "").trim();
   const averageRating = normalizeAverageRating(payload?.averageRating);
 
-  if (!employeeCode) {
-    const error = new Error("employeeCode is required.");
-    error.statusCode = 400;
-    throw error;
-  }
   if (!name) {
     const error = new Error("name is required.");
-    error.statusCode = 400;
-    throw error;
-  }
-  if (!entity) {
-    const error = new Error("entity is required.");
-    error.statusCode = 400;
-    throw error;
-  }
-  if (!functionName) {
-    const error = new Error("function is required.");
     error.statusCode = 400;
     throw error;
   }
@@ -330,13 +318,14 @@ function resolveColumnIndexes(headers, columnMap) {
     indexes[field] = idx;
   }
 
-  if (indexes.employeeCode === undefined) {
-    const error = new Error("columnMap.employeeCode is required.");
-    error.statusCode = 400;
-    throw error;
-  }
-
   return indexes;
+}
+
+function resolveEmployeeCode(raw, lineNumber) {
+  if (isBlankCell(raw)) {
+    return `NO-ID-LINE-${lineNumber}`;
+  }
+  return String(raw).replace(/\u00a0/g, " ").trim();
 }
 
 function cellAt(row, index) {
@@ -360,16 +349,9 @@ async function importManagersFromCsv({ csvText, columnMap, level }) {
 
   rows.forEach((row, rowIndex) => {
     const lineNumber = rowIndex + 2;
-    const employeeCodeRaw = cellAt(row, indexes.employeeCode);
-    if (isBlankCell(employeeCodeRaw)) {
-      skipped += 1;
-      errors.push({
-        line: lineNumber,
-        message: "Missing employeeCode (empty or -)."
-      });
-      return;
-    }
-    const employeeCode = employeeCodeRaw;
+    const employeeCodeRaw =
+      indexes.employeeCode !== undefined ? cellAt(row, indexes.employeeCode) : "";
+    const employeeCode = resolveEmployeeCode(employeeCodeRaw, lineNumber);
 
     const name = normalizeOptionalText(
       indexes.name !== undefined ? cellAt(row, indexes.name) : "",

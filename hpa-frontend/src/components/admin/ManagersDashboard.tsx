@@ -10,196 +10,32 @@ import {
   importManagersCsv,
   updateManagerMetrics,
 } from '#/lib/admin-api'
-import type { ManagerColumnMap, ManagerLevel, ManagerRating, ManagerRecord, ManagerStatus } from '#/lib/admin-api'
-import { Badge } from '#/components/ui/badge'
+import type {
+  ManagerColumnMap,
+  ManagerLevel,
+  ManagerRating,
+  ManagerRecord,
+  ManagerStatus,
+} from '#/lib/admin-api'
 import { Button } from '#/components/ui/button'
+import { Loader2, Plus, Trash2, Upload } from 'lucide-react'
+import { ManagerAddDialog } from './managers/ManagerAddDialog'
+import { ManagerEditDialog } from './managers/ManagerEditDialog'
+import { ManagerImportDialog } from './managers/ManagerImportDialog'
+import { ManagersFilters } from './managers/ManagersFilters'
+import { ManagersTable } from './managers/ManagersTable'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '#/components/ui/dialog'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
+  EMPTY_CREATE_FORM,
+  IMPORT_FIELDS,
+} from './managers/manager-constants'
+import type { ManagerCreateForm } from './managers/manager-constants'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
-import { Loader2, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
-
-const STATUS_OPTIONS: Array<{ value: ManagerStatus; label: string }> = [
-  { value: 'completed', label: 'Completed' },
-  { value: 'not_completed', label: 'not Completed' },
-  { value: 'in_progress', label: 'in progress' },
-]
-
-const RATING_OPTIONS: ManagerRating[] = ['A', 'B', 'C', '-']
-const LEVEL_OPTIONS: ManagerLevel[] = ['n-2', 'n-3']
-
-const IMPORT_FIELDS: Array<{ key: keyof ManagerColumnMap; label: string; required?: boolean }> =
-  [
-    { key: 'employeeCode', label: 'Emp id', required: true },
-    { key: 'name', label: 'Name' },
-    { key: 'status', label: 'Status' },
-    { key: 'averageRating', label: 'Average rating' },
-    { key: 'rating', label: 'Rating (grade)' },
-    { key: 'entity', label: 'Entity' },
-    { key: 'function', label: 'Function' },
-  ]
-
-function statusLabel(status: ManagerStatus) {
-  const match = STATUS_OPTIONS.find((option) => option.value === status)
-  return match?.label ?? status
-}
-
-function statusVariant(
-  status: ManagerStatus,
-): 'default' | 'secondary' | 'outline' {
-  if (status === 'completed') return 'default'
-  if (status === 'in_progress') return 'secondary'
-  return 'outline'
-}
-
-function parseCsvHeaders(csvText: string): string[] {
-  const { headers } = parseCsv(csvText)
-  return headers
-}
-
-function parseCsv(csvText: string): { headers: string[]; rows: string[][] } {
-  const normalized = csvText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const lines = normalized.split('\n').filter((line) => line.trim().length > 0)
-  if (lines.length === 0) return { headers: [], rows: [] }
-
-  const parseLine = (line: string) => {
-    const cells: string[] = []
-    let current = ''
-    let inQuotes = false
-    for (let i = 0; i < line.length; i += 1) {
-      const char = line[i]
-      const next = line[i + 1]
-      if (char === '"') {
-        if (inQuotes && next === '"') {
-          current += '"'
-          i += 1
-        } else {
-          inQuotes = !inQuotes
-        }
-        continue
-      }
-      if (char === ',' && !inQuotes) {
-        cells.push(current.trim())
-        current = ''
-        continue
-      }
-      current += char
-    }
-    cells.push(current.trim())
-    return cells
-  }
-
-  const headers = parseLine(lines[0] ?? '')
-  const rows = lines.slice(1).map(parseLine)
-  return { headers, rows }
-}
-
-function isBlankCell(raw: string) {
-  const value = raw.replace(/\u00a0/g, ' ').trim()
-  if (!value) return true
-  const upper = value.toUpperCase()
-  return (
-    value === '-' ||
-    value === '–' ||
-    value === '—' ||
-    upper === 'N/A' ||
-    upper === 'NA' ||
-    upper === '.'
-  )
-}
-
-type ImportPreview = {
-  toAdd: Array<{ line: number; employeeCode: string; name: string }>
-  toUpdate: Array<{
-    line: number
-    employeeCode: string
-    name: string
-    existingName: string
-  }>
-  toSkip: Array<{ line: number; reason: string }>
-}
-
-function buildImportPreview(
-  csvText: string,
-  columnMap: ManagerColumnMap,
-  existing: ManagerRecord[],
-): ImportPreview {
-  const { headers, rows } = parseCsv(csvText)
-  const headerIndex = new Map(
-    headers.map((header, index) => [header.trim().toLowerCase(), index]),
-  )
-  const codeIdx = headerIndex.get((columnMap.employeeCode ?? '').trim().toLowerCase())
-  const nameIdx = columnMap.name
-    ? headerIndex.get(columnMap.name.trim().toLowerCase())
-    : undefined
-
-  const existingByCode = new Map(
-    existing.map((row) => [row.employeeCode.trim().toLowerCase(), row]),
-  )
-
-  const toAdd: ImportPreview['toAdd'] = []
-  const toUpdate: ImportPreview['toUpdate'] = []
-  const toSkip: ImportPreview['toSkip'] = []
-
-  if (codeIdx === undefined) {
-    return {
-      toAdd,
-      toUpdate,
-      toSkip: [{ line: 1, reason: 'Emp id column not found in CSV headers.' }],
-    }
-  }
-
-  rows.forEach((row, rowIndex) => {
-    const line = rowIndex + 2
-    const employeeCode = String(row[codeIdx] ?? '').trim()
-    if (isBlankCell(employeeCode)) {
-      toSkip.push({ line, reason: 'Missing emp id (empty or -)' })
-      return
-    }
-    const name =
-      nameIdx !== undefined
-        ? String(row[nameIdx] ?? '').trim() || employeeCode
-        : employeeCode
-    const existingRow = existingByCode.get(employeeCode.toLowerCase())
-    if (existingRow) {
-      toUpdate.push({
-        line,
-        employeeCode,
-        name,
-        existingName: existingRow.name,
-      })
-    } else {
-      toAdd.push({ line, employeeCode, name })
-    }
-  })
-
-  return { toAdd, toUpdate, toSkip }
-}
-
-const emptyCreateForm = {
-  employeeCode: '',
-  name: '',
-  entity: '',
-  function: '',
-  status: 'not_completed' as ManagerStatus,
-  averageRating: '0',
-  rating: 'A' as ManagerRating,
-  level: 'n-2' as ManagerLevel,
-}
+  buildCleanedColumnMap,
+  buildImportPreview,
+  isBlankCell,
+  parseCsvHeaders,
+} from './managers/manager-csv'
+import type { ImportPreview } from './managers/manager-csv'
 
 export function ManagersDashboard() {
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
@@ -212,9 +48,10 @@ export function ManagersDashboard() {
   const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [isClearing, setIsClearing] = useState(false)
 
   const [addOpen, setAddOpen] = useState(false)
-  const [createForm, setCreateForm] = useState(emptyCreateForm)
+  const [createForm, setCreateForm] = useState<ManagerCreateForm>(EMPTY_CREATE_FORM)
   const [isCreating, setIsCreating] = useState(false)
 
   const [editTarget, setEditTarget] = useState<ManagerRecord | null>(null)
@@ -227,19 +64,15 @@ export function ManagersDashboard() {
   const [csvText, setCsvText] = useState('')
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
   const [importLevel, setImportLevel] = useState<ManagerLevel>('n-2')
-  const [columnMap, setColumnMap] = useState<ManagerColumnMap>({
-    employeeCode: '',
-  })
+  const [columnMap, setColumnMap] = useState<ManagerColumnMap>({ employeeCode: '' })
   const [isImporting, setIsImporting] = useState(false)
-  const [isClearing, setIsClearing] = useState(false)
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
 
   const loadManagers = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const rows = await fetchManagers()
-      setManagers(rows)
+      setManagers(await fetchManagers())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load managers.')
       setManagers([])
@@ -254,9 +87,7 @@ export function ManagersDashboard() {
       try {
         const access = await fetchAdminAccess()
         setIsAdmin(access.isAdmin)
-        if (access.isAdmin) {
-          await loadManagers()
-        }
+        if (access.isAdmin) await loadManagers()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to verify access.')
         setIsAdmin(false)
@@ -281,15 +112,6 @@ export function ManagersDashboard() {
     })
   }, [managers, search, levelFilter, statusFilter])
 
-  const openEdit = (row: ManagerRecord) => {
-    setEditTarget(row)
-    setEditStatus(row.status)
-    setEditAverage(String(row.averageRating))
-    setEditRating(row.rating)
-    setSuccess(null)
-    setError(null)
-  }
-
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault()
     const averageRating = Number.parseFloat(createForm.averageRating)
@@ -301,18 +123,21 @@ export function ManagersDashboard() {
     setError(null)
     setSuccess(null)
     try {
+      const code = createForm.employeeCode.trim()
       await createManager({
-        employeeCode: createForm.employeeCode.trim(),
+        employeeCode: isBlankCell(code) ? `MANUAL-${Date.now()}` : code,
         name: createForm.name.trim(),
-        entity: createForm.entity.trim(),
-        function: createForm.function.trim(),
+        entity: isBlankCell(createForm.entity) ? 'Unknown' : createForm.entity.trim(),
+        function: isBlankCell(createForm.function)
+          ? 'Unknown'
+          : createForm.function.trim(),
         status: createForm.status,
         averageRating,
         rating: createForm.rating,
         level: createForm.level,
       })
       setAddOpen(false)
-      setCreateForm(emptyCreateForm)
+      setCreateForm(EMPTY_CREATE_FORM)
       setSuccess('Manager added.')
       await loadManagers()
     } catch (err) {
@@ -350,10 +175,9 @@ export function ManagersDashboard() {
   }
 
   const handleDelete = async (row: ManagerRecord) => {
-    const confirmed = window.confirm(
-      `Delete ${row.name} (${row.employeeCode})? This cannot be undone.`,
-    )
-    if (!confirmed) return
+    if (!window.confirm(`Delete ${row.name} (${row.employeeCode})? This cannot be undone.`)) {
+      return
+    }
     setDeletingId(row.id)
     setError(null)
     setSuccess(null)
@@ -369,16 +193,19 @@ export function ManagersDashboard() {
   }
 
   const handleClearAll = async () => {
-    const confirmed = window.confirm(
-      'Delete ALL managers?\n\nYou can re-import from CSV afterward. This cannot be undone.',
-    )
-    if (!confirmed) return
+    if (
+      !window.confirm(
+        'Delete ALL managers?\n\nYou can re-import from CSV afterward. This cannot be undone.',
+      )
+    ) {
+      return
+    }
     setIsClearing(true)
     setError(null)
     setSuccess(null)
     try {
       const result = await deleteAllManagers()
-      setSuccess(`Cleared ${result.deletedCount} manager(s). Re-import your CSV with Function mapped.`)
+      setSuccess(`Cleared ${result.deletedCount} manager(s).`)
       await loadManagers()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear managers.')
@@ -390,12 +217,11 @@ export function ManagersDashboard() {
   const handleCsvFile = async (file: File | null) => {
     if (!file) return
     const text = await file.text()
-    const headers = parseCsvHeaders(text)
     setCsvText(text)
-    setCsvHeaders(headers)
+    setCsvHeaders(parseCsvHeaders(text))
     setImportPreview(null)
     setColumnMap({
-      employeeCode: headers[0] ?? '',
+      employeeCode: '',
       name: '',
       status: '',
       averageRating: '',
@@ -405,43 +231,27 @@ export function ManagersDashboard() {
     })
   }
 
-  const cleanedColumnMap = (): ManagerColumnMap | null => {
-    if (!columnMap.employeeCode) return null
-    const cleanedMap: ManagerColumnMap = { employeeCode: columnMap.employeeCode }
-    for (const field of IMPORT_FIELDS) {
-      if (field.key === 'employeeCode') continue
-      const value = columnMap[field.key]
-      if (value) cleanedMap[field.key] = value
-    }
-    return cleanedMap
-  }
-
   const handlePreviewImport = (event: FormEvent) => {
     event.preventDefault()
     if (!csvText.trim()) {
       setError('Choose a CSV file first.')
       return
     }
-    const cleanedMap = cleanedColumnMap()
-    if (!cleanedMap) {
-      setError('Map the Emp id column before importing.')
-      return
-    }
     setError(null)
-    setImportPreview(buildImportPreview(csvText, cleanedMap, managers))
+    setImportPreview(
+      buildImportPreview(csvText, buildCleanedColumnMap(columnMap, IMPORT_FIELDS), managers),
+    )
   }
 
   const handleConfirmImport = async () => {
-    const cleanedMap = cleanedColumnMap()
-    if (!cleanedMap || !csvText.trim()) return
-
+    if (!csvText.trim()) return
     setIsImporting(true)
     setError(null)
     setSuccess(null)
     try {
       const result = await importManagersCsv({
         csvText,
-        columnMap: cleanedMap,
+        columnMap: buildCleanedColumnMap(columnMap, IMPORT_FIELDS),
         level: importLevel,
       })
       setImportOpen(false)
@@ -518,7 +328,7 @@ export function ManagersDashboard() {
             <Button
               size="sm"
               onClick={() => {
-                setCreateForm(emptyCreateForm)
+                setCreateForm(EMPTY_CREATE_FORM)
                 setAddOpen(true)
               }}
             >
@@ -539,497 +349,77 @@ export function ManagersDashboard() {
           </p>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-8"
-              placeholder="Search name, emp id, entity, function…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
-          <select
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-            value={levelFilter}
-            onChange={(event) =>
-              setLevelFilter(event.target.value as 'all' | ManagerLevel)
-            }
-          >
-            <option value="all">All levels</option>
-            {LEVEL_OPTIONS.map((level) => (
-              <option key={level} value={level}>
-                {level}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as 'all' | ManagerStatus)
-            }
-          >
-            <option value="all">All statuses</option>
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ManagersFilters
+          search={search}
+          levelFilter={levelFilter}
+          statusFilter={statusFilter}
+          onSearchChange={setSearch}
+          onLevelChange={setLevelFilter}
+          onStatusChange={setStatusFilter}
+        />
 
-        <div className="overflow-hidden rounded-lg border bg-background">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Emp id</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Avg rating</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead>Entity</TableHead>
-                <TableHead>Function</TableHead>
-                <TableHead>Level</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="size-4 animate-spin" />
-                      Loading managers…
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                    No managers yet. Import a CSV or add a row.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-mono text-xs">{row.employeeCode}</TableCell>
-                    <TableCell className="font-medium">{row.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant(row.status)}>
-                        {statusLabel(row.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{row.averageRating.toFixed(2)}</TableCell>
-                    <TableCell>{row.rating}</TableCell>
-                    <TableCell>{row.entity}</TableCell>
-                    <TableCell>{row.function}</TableCell>
-                    <TableCell>{row.level}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex gap-1">
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => openEdit(row)}
-                          aria-label={`Edit ${row.name}`}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          disabled={deletingId === row.id}
-                          onClick={() => void handleDelete(row)}
-                          aria-label={`Delete ${row.name}`}
-                        >
-                          {deletingId === row.id ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="size-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <ManagersTable
+          rows={filtered}
+          isLoading={isLoading}
+          deletingId={deletingId}
+          onEdit={(row) => {
+            setEditTarget(row)
+            setEditStatus(row.status)
+            setEditAverage(String(row.averageRating))
+            setEditRating(row.rating)
+            setError(null)
+            setSuccess(null)
+          }}
+          onDelete={(row) => void handleDelete(row)}
+        />
       </main>
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add manager</DialogTitle>
-            <DialogDescription>Create a single manager row manually.</DialogDescription>
-          </DialogHeader>
-          <form className="space-y-3" onSubmit={(event) => void handleCreate(event)}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-code">Emp id</Label>
-                <Input
-                  id="mgr-code"
-                  required
-                  value={createForm.employeeCode}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, employeeCode: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-name">Name</Label>
-                <Input
-                  id="mgr-name"
-                  required
-                  value={createForm.name}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, name: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-entity">Entity</Label>
-                <Input
-                  id="mgr-entity"
-                  required
-                  value={createForm.entity}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, entity: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-function">Function</Label>
-                <Input
-                  id="mgr-function"
-                  required
-                  value={createForm.function}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, function: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-level">Level</Label>
-                <select
-                  id="mgr-level"
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                  value={createForm.level}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      level: event.target.value as ManagerLevel,
-                    }))
-                  }
-                >
-                  {LEVEL_OPTIONS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-status">Status</Label>
-                <select
-                  id="mgr-status"
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                  value={createForm.status}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      status: event.target.value as ManagerStatus,
-                    }))
-                  }
-                >
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-avg">Average rating</Label>
-                <Input
-                  id="mgr-avg"
-                  type="number"
-                  min={0}
-                  max={5}
-                  step="0.01"
-                  required
-                  value={createForm.averageRating}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      averageRating: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mgr-rating">Rating</Label>
-                <select
-                  id="mgr-rating"
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                  value={createForm.rating}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      rating: event.target.value as ManagerRating,
-                    }))
-                  }
-                >
-                  {RATING_OPTIONS.map((rating) => (
-                    <option key={rating} value={rating}>
-                      {rating}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isCreating}>
-                {isCreating ? <Loader2 className="size-4 animate-spin" /> : null}
-                Save
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ManagerAddDialog
+        open={addOpen}
+        form={createForm}
+        isCreating={isCreating}
+        onOpenChange={setAddOpen}
+        onFormChange={setCreateForm}
+        onSubmit={(event) => void handleCreate(event)}
+      />
 
-      <Dialog open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit metrics</DialogTitle>
-            <DialogDescription>
-              Update status, average rating, and grade for{' '}
-              {editTarget?.name ?? 'manager'}.
-            </DialogDescription>
-          </DialogHeader>
-          <form className="space-y-3" onSubmit={(event) => void handleSaveEdit(event)}>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-status">Status</Label>
-              <select
-                id="edit-status"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                value={editStatus}
-                onChange={(event) => setEditStatus(event.target.value as ManagerStatus)}
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-avg">Average rating</Label>
-              <Input
-                id="edit-avg"
-                type="number"
-                min={0}
-                max={5}
-                step="0.01"
-                required
-                value={editAverage}
-                onChange={(event) => setEditAverage(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-rating">Rating</Label>
-              <select
-                id="edit-rating"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                value={editRating}
-                onChange={(event) => setEditRating(event.target.value as ManagerRating)}
-              >
-                {RATING_OPTIONS.map((rating) => (
-                  <option key={rating} value={rating}>
-                    {rating}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSavingEdit}>
-                {isSavingEdit ? <Loader2 className="size-4 animate-spin" /> : null}
-                Save changes
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ManagerEditDialog
+        target={editTarget}
+        status={editStatus}
+        averageRating={editAverage}
+        rating={editRating}
+        isSaving={isSavingEdit}
+        onClose={() => setEditTarget(null)}
+        onStatusChange={setEditStatus}
+        onAverageChange={setEditAverage}
+        onRatingChange={setEditRating}
+        onSubmit={(event) => void handleSaveEdit(event)}
+      />
 
-      <Dialog
+      <ManagerImportDialog
         open={importOpen}
+        csvText={csvText}
+        csvHeaders={csvHeaders}
+        importLevel={importLevel}
+        columnMap={columnMap}
+        preview={importPreview}
+        isImporting={isImporting}
         onOpenChange={(open) => {
           setImportOpen(open)
           if (!open) setImportPreview(null)
         }}
-      >
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Import managers CSV</DialogTitle>
-            <DialogDescription>
-              Map columns, preview who will be added or updated, then confirm import.
-              Empty or "-" for entity/function is allowed (stored as Unknown).
-            </DialogDescription>
-          </DialogHeader>
-          <form className="space-y-3" onSubmit={handlePreviewImport}>
-            <div className="space-y-1.5">
-              <Label htmlFor="csv-file">CSV file</Label>
-              <Input
-                id="csv-file"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null
-                  void handleCsvFile(file)
-                }}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="import-level">Level for all rows</Label>
-              <select
-                id="import-level"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                value={importLevel}
-                onChange={(event) => {
-                  setImportLevel(event.target.value as ManagerLevel)
-                  setImportPreview(null)
-                }}
-              >
-                {LEVEL_OPTIONS.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {csvHeaders.length > 0 ? (
-              <div className="space-y-2 rounded-md border p-3">
-                <p className="text-sm font-medium">Column mapping</p>
-                {IMPORT_FIELDS.map((field) => (
-                  <div key={field.key} className="grid grid-cols-[1fr_1.2fr] items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">
-                      {field.label}
-                      {field.required ? ' *' : ''}
-                    </Label>
-                    <select
-                      className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-                      value={columnMap[field.key] ?? ''}
-                      onChange={(event) => {
-                        setColumnMap((prev) => ({
-                          ...prev,
-                          [field.key]: event.target.value,
-                        }))
-                        setImportPreview(null)
-                      }}
-                      required={field.required}
-                    >
-                      <option value="">{field.required ? 'Select column…' : 'Skip'}</option>
-                      {csvHeaders.map((header) => (
-                        <option key={header} value={header}>
-                          {header}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {importPreview ? (
-              <div className="space-y-3 rounded-md border p-3 text-sm">
-                <p className="font-medium">
-                  Preview · {importPreview.toAdd.length} new ·{' '}
-                  {importPreview.toUpdate.length} update · {importPreview.toSkip.length}{' '}
-                  skip
-                </p>
-
-                {importPreview.toUpdate.length > 0 ? (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-amber-800">
-                      Will update (same emp id already in table)
-                    </p>
-                    <ul className="max-h-36 space-y-1 overflow-y-auto rounded border bg-amber-50/60 p-2 text-xs">
-                      {importPreview.toUpdate.map((row) => (
-                        <li key={`u-${row.line}-${row.employeeCode}`}>
-                          <span className="font-mono">{row.employeeCode}</span> — {row.name}
-                          {row.existingName !== row.name
-                            ? ` (was ${row.existingName})`
-                            : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {importPreview.toAdd.length > 0 ? (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-emerald-800">Will add (new)</p>
-                    <ul className="max-h-28 space-y-1 overflow-y-auto rounded border bg-emerald-50/60 p-2 text-xs">
-                      {importPreview.toAdd.slice(0, 40).map((row) => (
-                        <li key={`a-${row.line}-${row.employeeCode}`}>
-                          <span className="font-mono">{row.employeeCode}</span> — {row.name}
-                        </li>
-                      ))}
-                      {importPreview.toAdd.length > 40 ? (
-                        <li>…and {importPreview.toAdd.length - 40} more</li>
-                      ) : null}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {importPreview.toSkip.length > 0 ? (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-destructive">Will skip</p>
-                    <ul className="max-h-28 space-y-1 overflow-y-auto rounded border bg-destructive/5 p-2 text-xs">
-                      {importPreview.toSkip.slice(0, 20).map((row) => (
-                        <li key={`s-${row.line}`}>
-                          Line {row.line}: {row.reason}
-                        </li>
-                      ))}
-                      {importPreview.toSkip.length > 20 ? (
-                        <li>…and {importPreview.toSkip.length - 20} more</li>
-                      ) : null}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            <DialogFooter className="gap-2 sm:justify-between">
-              <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
-                Cancel
-              </Button>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" variant="secondary" disabled={!csvText}>
-                  Preview
-                </Button>
-                <Button
-                  type="button"
-                  disabled={isImporting || !importPreview}
-                  onClick={() => void handleConfirmImport()}
-                >
-                  {isImporting ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Confirm import
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+        onFileChange={(file) => void handleCsvFile(file)}
+        onLevelChange={(level) => {
+          setImportLevel(level)
+          setImportPreview(null)
+        }}
+        onColumnMapChange={(map) => {
+          setColumnMap(map)
+          setImportPreview(null)
+        }}
+        onPreview={handlePreviewImport}
+        onConfirm={() => void handleConfirmImport()}
+      />
     </div>
   )
 }
