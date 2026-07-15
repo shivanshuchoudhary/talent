@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { ManagerDashboardStats } from './manager-analytics'
-import { HorizontalBarChart } from '#/components/admin/AdminChartPrimitives'
-import { BarChart3, Building2, Briefcase, GraduationCap } from 'lucide-react'
+import { ChartLegend, DonutChart } from '#/components/admin/AdminChartPrimitives'
+import { BarChart3, GraduationCap } from 'lucide-react'
 
 function ChartCard({
   title,
@@ -44,7 +44,15 @@ export function ManagersInsightsPanel({ stats }: ManagersInsightsPanelProps) {
         subtitle="A / B / C / - across managers"
         icon={<GraduationCap className="size-4" />}
       >
-        <HorizontalBarChart items={stats.ratingBreakdown} maxItems={6} />
+        <div className="flex flex-wrap items-center gap-6">
+          <DonutChart
+            slices={stats.ratingBreakdown}
+            size={140}
+            centerLabel={stats.total}
+            centerHint="managers"
+          />
+          <ChartLegend slices={stats.ratingBreakdown} />
+        </div>
       </ChartCard>
 
       <ChartCard
@@ -52,23 +60,15 @@ export function ManagersInsightsPanel({ stats }: ManagersInsightsPanelProps) {
         subtitle="n-2 vs n-3 headcount"
         icon={<BarChart3 className="size-4" />}
       >
-        <HorizontalBarChart items={stats.levelBreakdown} maxItems={4} />
-      </ChartCard>
-
-      <ChartCard
-        title="By entity"
-        subtitle="Top entities in the roster"
-        icon={<Building2 className="size-4" />}
-      >
-        <HorizontalBarChart items={stats.entityBreakdown} maxItems={8} />
-      </ChartCard>
-
-      <ChartCard
-        title="By function"
-        subtitle="Top functions in the roster"
-        icon={<Briefcase className="size-4" />}
-      >
-        <HorizontalBarChart items={stats.functionBreakdown} maxItems={8} />
+        <div className="flex flex-wrap items-center gap-6">
+          <DonutChart
+            slices={stats.levelBreakdown}
+            size={140}
+            centerLabel={stats.total}
+            centerHint="managers"
+          />
+          <ChartLegend slices={stats.levelBreakdown} />
+        </div>
       </ChartCard>
     </div>
   )

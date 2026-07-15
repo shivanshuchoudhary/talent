@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { ManagerDashboardStats } from './manager-analytics'
 import { ChartLegend, DonutChart } from '#/components/admin/AdminChartPrimitives'
-import { CheckCircle2, Layers, Star, Users } from 'lucide-react'
+import { Layers, Star, Users } from 'lucide-react'
 import { cn } from '#/lib/utils'
 
 function OverviewCard({
@@ -29,7 +29,7 @@ type ManagersStatsOverviewProps = {
 
 export function ManagersStatsOverview({ stats }: ManagersStatsOverviewProps) {
   return (
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <OverviewCard>
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Users className="size-4" />
@@ -43,22 +43,6 @@ export function ManagersStatsOverview({ stats }: ManagersStatsOverviewProps) {
         <p className="mt-2 text-sm text-muted-foreground">
           {stats.levelBreakdown.map((s) => `${s.label}: ${s.count}`).join(' · ') ||
             'No levels yet'}
-        </p>
-      </OverviewCard>
-
-      <OverviewCard>
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <CheckCircle2 className="size-4" />
-        </div>
-        <p className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Completion
-        </p>
-        <p className="mt-1 text-4xl font-semibold tabular-nums tracking-tight">
-          {stats.completionRate}%
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {stats.completed} completed · {stats.inProgress} in progress ·{' '}
-          {stats.notCompleted} not completed
         </p>
       </OverviewCard>
 
@@ -78,10 +62,8 @@ export function ManagersStatsOverview({ stats }: ManagersStatsOverviewProps) {
       </OverviewCard>
 
       <OverviewCard>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Layers className="size-4" />
-          </div>
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Layers className="size-4" />
         </div>
         <p className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Status mix

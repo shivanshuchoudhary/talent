@@ -24,6 +24,7 @@ import { ManagerEditDialog } from './managers/ManagerEditDialog'
 import { ManagerImportDialog } from './managers/ManagerImportDialog'
 import { ManagersFilters } from './managers/ManagersFilters'
 import { ManagersInsightsPanel } from './managers/ManagersInsightsPanel'
+import { ManagersSegmentBreakdown } from './managers/ManagersSegmentBreakdown'
 import { ManagersStatsOverview } from './managers/ManagersStatsOverview'
 import { ManagersTable } from './managers/ManagersTable'
 import { computeManagerDashboardStats } from './managers/manager-analytics'
@@ -381,6 +382,7 @@ export function ManagersDashboard() {
 
         <ManagersStatsOverview stats={stats} />
         <ManagersInsightsPanel stats={stats} />
+        <ManagersSegmentBreakdown managers={managers} />
 
         <ManagersFilters
           search={search}

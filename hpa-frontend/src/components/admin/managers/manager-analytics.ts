@@ -6,14 +6,27 @@ export type ManagerDashboardStats = {
   completed: number
   inProgress: number
   notCompleted: number
-  completionRate: number
   avgRating: number
   gradedCount: number
   statusBreakdown: CountSlice[]
   ratingBreakdown: CountSlice[]
   levelBreakdown: CountSlice[]
-  entityBreakdown: CountSlice[]
-  functionBreakdown: CountSlice[]
+}
+
+export type ManagerSegmentDimension = 'entity' | 'function'
+
+export type ManagerSegmentInsights = {
+  segmentLabel: string
+  managerCount: number
+  completed: number
+  inProgress: number
+  notCompleted: number
+  completionRate: number
+  avgRating: number
+  gradedCount: number
+  statusBreakdown: CountSlice[]
+  gradeDistribution: CountSlice[]
+  levelBreakdown: CountSlice[]
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -79,13 +92,57 @@ export function computeManagerDashboardStats(
     completed,
     inProgress,
     notCompleted,
-    completionRate: total === 0 ? 0 : Math.round((completed / total) * 100),
     avgRating: Math.round(avgRating * 100) / 100,
     gradedCount: rated.length,
     statusBreakdown: countBy(managers, (m) => statusDisplay(m.status), STATUS_COLORS),
     ratingBreakdown: countBy(managers, (m) => m.rating, RATING_COLORS),
     levelBreakdown: countBy(managers, (m) => m.level, LEVEL_COLORS),
-    entityBreakdown: countBy(managers, (m) => m.entity, undefined, 8),
-    functionBreakdown: countBy(managers, (m) => m.function, undefined, 8),
+  }
+}
+
+export function getManagerSegmentOptions(
+  managers: ManagerRecord[],
+  dimension: ManagerSegmentDimension,
+): string[] {
+  const values = new Set<string>()
+  for (const row of managers) {
+    const value = (dimension === 'entity' ? row.entity : row.function).trim()
+    if (value) values.add(value)
+  }
+  return [...values].sort((a, b) => a.localeCompare(b))
+}
+
+export function computeManagerSegmentInsights(
+  managers: ManagerRecord[],
+  dimension: ManagerSegmentDimension,
+  segment: string,
+): ManagerSegmentInsights {
+  const rows = managers.filter((row) => {
+    const value = (dimension === 'entity' ? row.entity : row.function).trim()
+    return value === segment
+  })
+  const completed = rows.filter((m) => m.status === 'completed').length
+  const inProgress = rows.filter((m) => m.status === 'in_progress').length
+  const notCompleted = rows.filter((m) => m.status === 'not_completed').length
+  const managerCount = rows.length
+  const graded = rows.filter((m) => m.rating !== '-')
+  const avgRating =
+    managerCount === 0
+      ? 0
+      : rows.reduce((sum, m) => sum + m.averageRating, 0) / managerCount
+
+  return {
+    segmentLabel: segment,
+    managerCount,
+    completed,
+    inProgress,
+    notCompleted,
+    completionRate:
+      managerCount === 0 ? 0 : Math.round((completed / managerCount) * 100),
+    avgRating: Math.round(avgRating * 100) / 100,
+    gradedCount: graded.length,
+    statusBreakdown: countBy(rows, (m) => statusDisplay(m.status), STATUS_COLORS),
+    gradeDistribution: countBy(rows, (m) => m.rating, RATING_COLORS),
+    levelBreakdown: countBy(rows, (m) => m.level, LEVEL_COLORS),
   }
 }
