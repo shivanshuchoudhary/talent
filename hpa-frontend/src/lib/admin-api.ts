@@ -84,6 +84,7 @@ export type ManagerRecord = {
   averageRating: number
   rating: ManagerRating
   entity: string
+  function: string
   level: ManagerLevel
   createdAt?: string
   updatedAt?: string
@@ -96,6 +97,7 @@ export type ManagerColumnMap = {
   averageRating?: string
   rating?: string
   entity?: string
+  function?: string
 }
 
 export type ManagerImportResult = {
@@ -114,6 +116,7 @@ export type CreateManagerPayload = {
   averageRating: number
   rating: ManagerRating
   entity: string
+  function: string
   level: ManagerLevel
 }
 
@@ -375,6 +378,23 @@ export async function deleteManager(
   if (!response.ok) {
     throw new Error(await readApiErrorMessage(response, body, 'Failed to delete manager.'))
   }
+}
+
+export async function deleteAllManagers(
+  preferredIdToken?: string | null,
+): Promise<{ deletedCount: number }> {
+  const response = await fetch(API_SURVEY_ADMIN_MANAGERS_URL, {
+    method: 'DELETE',
+    headers: await buildAuthHeaders(preferredIdToken),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(
+      await readApiErrorMessage(response, body, 'Failed to delete all managers.'),
+    )
+  }
+  const data = (body as { data?: { deletedCount?: number } } | null)?.data
+  return { deletedCount: data?.deletedCount ?? 0 }
 }
 
 export async function importManagersCsv(

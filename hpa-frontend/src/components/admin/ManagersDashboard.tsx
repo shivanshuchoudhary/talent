@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   createManager,
+  deleteAllManagers,
   deleteManager,
   fetchAdminAccess,
   fetchManagers,
@@ -49,6 +50,7 @@ const IMPORT_FIELDS: Array<{ key: keyof ManagerColumnMap; label: string; require
     { key: 'averageRating', label: 'Average rating' },
     { key: 'rating', label: 'Rating (grade)' },
     { key: 'entity', label: 'Entity' },
+    { key: 'function', label: 'Function' },
   ]
 
 function statusLabel(status: ManagerStatus) {
@@ -96,6 +98,7 @@ const emptyCreateForm = {
   employeeCode: '',
   name: '',
   entity: '',
+  function: '',
   status: 'not_completed' as ManagerStatus,
   averageRating: '0',
   rating: 'A' as ManagerRating,
@@ -132,6 +135,7 @@ export function ManagersDashboard() {
     employeeCode: '',
   })
   const [isImporting, setIsImporting] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
 
   const loadManagers = useCallback(async () => {
     setIsLoading(true)
@@ -174,7 +178,8 @@ export function ManagersDashboard() {
       return (
         row.name.toLowerCase().includes(q) ||
         row.employeeCode.toLowerCase().includes(q) ||
-        row.entity.toLowerCase().includes(q)
+        row.entity.toLowerCase().includes(q) ||
+        row.function.toLowerCase().includes(q)
       )
     })
   }, [managers, search, levelFilter, statusFilter])
@@ -203,6 +208,7 @@ export function ManagersDashboard() {
         employeeCode: createForm.employeeCode.trim(),
         name: createForm.name.trim(),
         entity: createForm.entity.trim(),
+        function: createForm.function.trim(),
         status: createForm.status,
         averageRating,
         rating: createForm.rating,
@@ -265,6 +271,25 @@ export function ManagersDashboard() {
     }
   }
 
+  const handleClearAll = async () => {
+    const confirmed = window.confirm(
+      'Delete ALL managers?\n\nYou can re-import from CSV afterward. This cannot be undone.',
+    )
+    if (!confirmed) return
+    setIsClearing(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const result = await deleteAllManagers()
+      setSuccess(`Cleared ${result.deletedCount} manager(s). Re-import your CSV with Function mapped.`)
+      await loadManagers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear managers.')
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
   const handleCsvFile = async (file: File | null) => {
     if (!file) return
     const text = await file.text()
@@ -278,6 +303,7 @@ export function ManagersDashboard() {
       averageRating: '',
       rating: '',
       entity: '',
+      function: '',
     })
   }
 
@@ -369,6 +395,15 @@ export function ManagersDashboard() {
             </Button>
             <Button
               size="sm"
+              variant="outline"
+              disabled={isClearing || managers.length === 0}
+              onClick={() => void handleClearAll()}
+            >
+              {isClearing ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+              Clear all
+            </Button>
+            <Button
+              size="sm"
               onClick={() => {
                 setCreateForm(emptyCreateForm)
                 setAddOpen(true)
@@ -396,7 +431,7 @@ export function ManagersDashboard() {
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-8"
-              placeholder="Search name, emp id, entity…"
+              placeholder="Search name, emp id, entity, function…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -441,6 +476,7 @@ export function ManagersDashboard() {
                 <TableHead>Avg rating</TableHead>
                 <TableHead>Rating</TableHead>
                 <TableHead>Entity</TableHead>
+                <TableHead>Function</TableHead>
                 <TableHead>Level</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -448,7 +484,7 @@ export function ManagersDashboard() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="size-4 animate-spin" />
                       Loading managers…
@@ -457,7 +493,7 @@ export function ManagersDashboard() {
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     No managers yet. Import a CSV or add a row.
                   </TableCell>
                 </TableRow>
@@ -474,6 +510,7 @@ export function ManagersDashboard() {
                     <TableCell>{row.averageRating.toFixed(2)}</TableCell>
                     <TableCell>{row.rating}</TableCell>
                     <TableCell>{row.entity}</TableCell>
+                    <TableCell>{row.function}</TableCell>
                     <TableCell>{row.level}</TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex gap-1">
@@ -546,6 +583,17 @@ export function ManagersDashboard() {
                   value={createForm.entity}
                   onChange={(event) =>
                     setCreateForm((prev) => ({ ...prev, entity: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mgr-function">Function</Label>
+                <Input
+                  id="mgr-function"
+                  required
+                  value={createForm.function}
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({ ...prev, function: event.target.value }))
                   }
                 />
               </div>

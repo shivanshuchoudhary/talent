@@ -27,7 +27,8 @@ const MANAGER_IMPORT_FIELDS = [
   "status",
   "averageRating",
   "rating",
-  "entity"
+  "entity",
+  "function"
 ];
 
 module.exports = {

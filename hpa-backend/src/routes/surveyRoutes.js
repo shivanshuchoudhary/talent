@@ -26,6 +26,7 @@ const {
   createManager,
   updateManagerMetrics,
   deleteManager,
+  deleteAllManagers,
   importManagersFromCsv
 } = require("../services/managers");
 
@@ -434,6 +435,24 @@ router.patch("/admin/managers/:id", requireAdmin, async (req, res) => {
     });
     return res.status(status).json({
       message: error.message || "Failed to update manager.",
+      error: error.message
+    });
+  }
+});
+
+router.delete("/admin/managers", requireAdmin, async (_req, res) => {
+  try {
+    const result = await deleteAllManagers();
+    return res.status(200).json({
+      message: "All managers deleted.",
+      data: result
+    });
+  } catch (error) {
+    console.error("[Survey][DELETE] /admin/managers (all) failed:", {
+      error: error.message
+    });
+    return res.status(500).json({
+      message: error.message || "Failed to delete managers.",
       error: error.message
     });
   }

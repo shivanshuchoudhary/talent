@@ -106,6 +106,7 @@ function serializeManager(doc) {
     averageRating: doc.averageRating,
     rating: doc.rating,
     entity: doc.entity,
+    function: doc.function,
     level: doc.level,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt
@@ -125,6 +126,7 @@ function validateCreatePayload(payload) {
   const employeeCode = String(payload?.employeeCode ?? "").trim();
   const name = String(payload?.name ?? "").trim();
   const entity = String(payload?.entity ?? "").trim();
+  const functionName = String(payload?.function ?? "").trim();
   const status = String(payload?.status ?? "").trim();
   const rating = normalizeRating(payload?.rating);
   const level = String(payload?.level ?? "").trim();
@@ -142,6 +144,11 @@ function validateCreatePayload(payload) {
   }
   if (!entity) {
     const error = new Error("entity is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!functionName) {
+    const error = new Error("function is required.");
     error.statusCode = 400;
     throw error;
   }
@@ -172,6 +179,7 @@ function validateCreatePayload(payload) {
     employeeCode,
     name,
     entity,
+    function: functionName,
     status,
     averageRating,
     rating,
@@ -269,6 +277,11 @@ async function deleteManager(id) {
   return { id: String(doc._id), employeeCode: doc.employeeCode };
 }
 
+async function deleteAllManagers() {
+  const result = await Manager.deleteMany({});
+  return { deletedCount: result.deletedCount ?? 0 };
+}
+
 function resolveColumnIndexes(headers, columnMap) {
   const headerIndex = new Map();
   headers.forEach((header, index) => {
@@ -331,6 +344,7 @@ async function importManagersFromCsv({ csvText, columnMap, level }) {
 
     const name = cellAt(row, indexes.name);
     const entity = cellAt(row, indexes.entity);
+    const functionName = cellAt(row, indexes.function);
     const statusRaw = cellAt(row, indexes.status);
     const ratingRaw = cellAt(row, indexes.rating);
     const averageRaw = cellAt(row, indexes.averageRating);
@@ -380,6 +394,11 @@ async function importManagersFromCsv({ csvText, columnMap, level }) {
       errors.push({ line: lineNumber, message: "Missing entity." });
       return;
     }
+    if (indexes.function !== undefined && !functionName) {
+      skipped += 1;
+      errors.push({ line: lineNumber, message: "Missing function." });
+      return;
+    }
 
     const setDoc = {
       employeeCode,
@@ -390,10 +409,12 @@ async function importManagersFromCsv({ csvText, columnMap, level }) {
     };
     if (indexes.name !== undefined) setDoc.name = name;
     if (indexes.entity !== undefined) setDoc.entity = entity;
+    if (indexes.function !== undefined) setDoc.function = functionName;
 
     const setOnInsert = {};
     if (indexes.name === undefined) setOnInsert.name = employeeCode;
     if (indexes.entity === undefined) setOnInsert.entity = "Unknown";
+    if (indexes.function === undefined) setOnInsert.function = "Unknown";
 
     ops.push({
       updateOne: {
@@ -433,6 +454,7 @@ module.exports = {
   createManager,
   updateManagerMetrics,
   deleteManager,
+  deleteAllManagers,
   importManagersFromCsv,
   serializeManager,
   normalizeStatus,

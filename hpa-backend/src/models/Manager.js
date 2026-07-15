@@ -41,6 +41,11 @@ const managerSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    function: {
+      type: String,
+      required: true,
+      trim: true
+    },
     level: {
       type: String,
       enum: MANAGER_LEVEL_VALUES,
