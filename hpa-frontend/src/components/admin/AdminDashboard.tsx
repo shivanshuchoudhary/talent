@@ -21,6 +21,7 @@ export function AdminDashboard() {
     isLoadingDashboard,
     isSignedIn,
     isAdmin,
+    sessionExpired,
     isMsalConfigured,
     handleLogin,
     reloadParticipants,
@@ -32,10 +33,21 @@ export function AdminDashboard() {
   )
 
   const showLogin =
-    !isSignedIn && !isHandlingMsalRedirect && !isAuthRedirecting && !isLoadingDashboard
+    (!isSignedIn || sessionExpired) &&
+    !isHandlingMsalRedirect &&
+    !isAuthRedirecting &&
+    !isLoadingDashboard
 
   const showDashboard =
     isSignedIn && isAdmin && !isHandlingMsalRedirect && !isLoadingDashboard
+
+  const showNoAdminAccess =
+    isSignedIn &&
+    !isAdmin &&
+    !sessionExpired &&
+    !isHandlingMsalRedirect &&
+    !isLoadingDashboard &&
+    !loadError
 
   if (showDashboard) {
     return (
@@ -105,7 +117,7 @@ export function AdminDashboard() {
           ) : null}
 
           {showLogin ? (
-            <div className="mt-8 flex flex-1 flex-col justify-center">
+            <div className="mt-8 flex flex-1 flex-col justify-center gap-3">
               {!isMsalConfigured ? (
                 <p className="text-sm text-muted-foreground">
                   Microsoft SSO is not configured for this environment.
@@ -122,17 +134,25 @@ export function AdminDashboard() {
                     className="mr-3 h-5 w-5 object-contain"
                     aria-hidden
                   />
-                  Sign in with Microsoft
+                  {sessionExpired ? 'Sign in again' : 'Sign in with Microsoft'}
                 </Button>
               )}
+              <Button variant="outline" className="w-full" asChild>
+                <Link to="/">Back to home</Link>
+              </Button>
             </div>
           ) : null}
 
-          {isSignedIn && !isAdmin && !isHandlingMsalRedirect && !isLoadingDashboard ? (
-            <p className="mt-8 rounded-lg border border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
-              You are signed in but do not have admin access. Contact your administrator to
-              be added to the admin list.
-            </p>
+          {showNoAdminAccess ? (
+            <div className="mt-8 space-y-4 rounded-lg border border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
+              <p>
+                You are signed in but do not have admin access. Contact your administrator
+                to be added to the admin list.
+              </p>
+              <Button variant="outline" asChild>
+                <Link to="/">Back to home</Link>
+              </Button>
+            </div>
           ) : null}
         </div>
       </section>

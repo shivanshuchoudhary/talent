@@ -14,6 +14,7 @@ import {
   loginWithMicrosoft,
   logoutMicrosoft,
 } from '#/lib/msal-auth'
+import { isAuthSessionError, SESSION_EXPIRED_MESSAGE } from '#/lib/auth-session'
 
 export function useAdminPage() {
   const [account, setAccount] = useState<AccountInfo | null>(null)
@@ -21,13 +22,14 @@ export function useAdminPage() {
   const [participants, setParticipants] = useState<AdminParticipant[]>([])
   const [authError, setAuthError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [sessionExpired, setSessionExpired] = useState(false)
   const [isHandlingMsalRedirect, setIsHandlingMsalRedirect] = useState(true)
   const [isAuthRedirecting, setIsAuthRedirecting] = useState(false)
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
 
-  const isSignedIn = Boolean(account)
-  const isAdmin = Boolean(access?.isAdmin)
+  const isSignedIn = Boolean(account) && !sessionExpired
+  const isAdmin = Boolean(access?.isAdmin) && isSignedIn
 
   const loadDashboard = useCallback(
     async (preferredIdToken?: string | null) => {
@@ -36,6 +38,7 @@ export function useAdminPage() {
       try {
         const nextAccess = await fetchAdminAccess(preferredIdToken)
         setAccess(nextAccess)
+        setSessionExpired(false)
         if (!nextAccess.isAdmin) {
           setParticipants([])
           return
@@ -44,6 +47,14 @@ export function useAdminPage() {
         setParticipants(rows)
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load admin data.'
+        if (isAuthSessionError(message)) {
+          setSessionExpired(true)
+          setAccess(null)
+          setParticipants([])
+          setAuthError(SESSION_EXPIRED_MESSAGE)
+          setLoadError(null)
+          return
+        }
         setLoadError(message)
         setParticipants([])
       } finally {
@@ -60,6 +71,14 @@ export function useAdminPage() {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to refresh participants.'
+      if (isAuthSessionError(message)) {
+        setSessionExpired(true)
+        setAccess(null)
+        setParticipants([])
+        setAuthError(SESSION_EXPIRED_MESSAGE)
+        setLoadError(null)
+        return
+      }
       setLoadError(message)
     }
   }, [])
@@ -97,6 +116,7 @@ export function useAdminPage() {
 
   const handleLogin = async () => {
     setAuthError(null)
+    setSessionExpired(false)
     setIsAuthRedirecting(true)
     try {
       await loginWithMicrosoft()
@@ -116,6 +136,8 @@ export function useAdminPage() {
       setAccess(null)
       setParticipants([])
       setLoadError(null)
+      setSessionExpired(false)
+      setAuthError(null)
     }
   }
 
@@ -145,6 +167,7 @@ export function useAdminPage() {
     isDownloading,
     isSignedIn,
     isAdmin,
+    sessionExpired,
     isMsalConfigured: isMsalConfigured(),
     handleLogin,
     handleSignOut,

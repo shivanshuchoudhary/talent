@@ -23,7 +23,10 @@ import { ManagerAddDialog } from './managers/ManagerAddDialog'
 import { ManagerEditDialog } from './managers/ManagerEditDialog'
 import { ManagerImportDialog } from './managers/ManagerImportDialog'
 import { ManagersFilters } from './managers/ManagersFilters'
+import { ManagersInsightsPanel } from './managers/ManagersInsightsPanel'
+import { ManagersStatsOverview } from './managers/ManagersStatsOverview'
 import { ManagersTable } from './managers/ManagersTable'
+import { computeManagerDashboardStats } from './managers/manager-analytics'
 import {
   EMPTY_CREATE_FORM,
   IMPORT_FIELDS,
@@ -36,10 +39,12 @@ import {
   parseCsvHeaders,
 } from './managers/manager-csv'
 import type { ImportPreview } from './managers/manager-csv'
+import { isAuthSessionError, SESSION_EXPIRED_MESSAGE } from '#/lib/auth-session'
 
 export function ManagersDashboard() {
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
   const [managers, setManagers] = useState<ManagerRecord[]>([])
   const [search, setSearch] = useState('')
   const [levelFilter, setLevelFilter] = useState<'all' | ManagerLevel>('all')
@@ -74,7 +79,15 @@ export function ManagersDashboard() {
     try {
       setManagers(await fetchManagers())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load managers.')
+      const message = err instanceof Error ? err.message : 'Failed to load managers.'
+      if (isAuthSessionError(message)) {
+        setSessionExpired(true)
+        setIsAdmin(false)
+        setManagers([])
+        setError(SESSION_EXPIRED_MESSAGE)
+        return
+      }
+      setError(message)
       setManagers([])
     } finally {
       setIsLoading(false)
@@ -86,11 +99,19 @@ export function ManagersDashboard() {
       setIsCheckingAccess(true)
       try {
         const access = await fetchAdminAccess()
+        setSessionExpired(false)
         setIsAdmin(access.isAdmin)
         if (access.isAdmin) await loadManagers()
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to verify access.')
-        setIsAdmin(false)
+        const message = err instanceof Error ? err.message : 'Failed to verify access.'
+        if (isAuthSessionError(message)) {
+          setSessionExpired(true)
+          setIsAdmin(false)
+          setError(SESSION_EXPIRED_MESSAGE)
+        } else {
+          setError(message)
+          setIsAdmin(false)
+        }
       } finally {
         setIsCheckingAccess(false)
       }
@@ -111,6 +132,8 @@ export function ManagersDashboard() {
       )
     })
   }, [managers, search, levelFilter, statusFilter])
+
+  const stats = useMemo(() => computeManagerDashboardStats(managers), [managers])
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault()
@@ -284,16 +307,23 @@ export function ManagersDashboard() {
     )
   }
 
-  if (!isAdmin) {
+  if (sessionExpired || !isAdmin) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="text-2xl font-semibold">Managers dashboard</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Admin access is required to view manager data.
+          {sessionExpired
+            ? SESSION_EXPIRED_MESSAGE
+            : 'Admin access is required to view manager data.'}
         </p>
-        <Button asChild className="mt-6" variant="outline">
-          <Link to="/admin">Back to admin</Link>
-        </Button>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <Button asChild variant="outline">
+            <Link to="/">Back to home</Link>
+          </Button>
+          <Button asChild>
+            <Link to="/admin">{sessionExpired ? 'Sign in again' : 'Admin overview'}</Link>
+          </Button>
+        </div>
       </div>
     )
   }
@@ -348,6 +378,9 @@ export function ManagersDashboard() {
             {success}
           </p>
         ) : null}
+
+        <ManagersStatsOverview stats={stats} />
+        <ManagersInsightsPanel stats={stats} />
 
         <ManagersFilters
           search={search}
