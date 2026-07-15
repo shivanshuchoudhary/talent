@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { deleteParticipant, resetParticipantSurvey, type AdminParticipant } from '#/lib/admin-api'
+import { deleteParticipant, resetParticipantSurvey } from '#/lib/admin-api'
+import type { AdminParticipant } from '#/lib/admin-api'
 import { filterParticipants } from '#/lib/admin-analytics'
 import { AdminParticipantGradeCell } from '#/components/admin/AdminParticipantGradeCell'
 import { Badge } from '#/components/ui/badge'
@@ -130,11 +131,10 @@ export function AdminParticipantsSection({
               key={f.value}
               type="button"
               onClick={() => setStatusFilter(f.value)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                statusFilter === f.value
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${statusFilter === f.value
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
-              }`}
+                }`}
             >
               {f.label}
             </button>

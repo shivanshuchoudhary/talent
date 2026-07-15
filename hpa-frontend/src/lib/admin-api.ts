@@ -1,8 +1,11 @@
 import {
+  API_SURVEY_ADMIN_MANAGERS_IMPORT_URL,
+  API_SURVEY_ADMIN_MANAGERS_URL,
   API_SURVEY_ADMIN_PARTICIPANTS_URL,
   API_SURVEY_ADMIN_USERS_URL,
   API_SURVEY_EXPORT_URL,
   API_SURVEY_ME_URL,
+  apiSurveyAdminManagerUrl,
   apiSurveyAdminParticipantUrl,
   apiSurveyAdminParticipantResetSurveyUrl,
   apiSurveyAdminUserUrl,
@@ -67,6 +70,57 @@ export type AdminParticipant = {
     updatedAt: string | null
   } | null
   status: string
+}
+
+export type ManagerStatus = 'completed' | 'not_completed' | 'in_progress'
+export type ManagerRating = 'A' | 'B' | '-'
+export type ManagerLevel = 'n-2' | 'n-3'
+
+export type ManagerRecord = {
+  id: string
+  employeeCode: string
+  name: string
+  status: ManagerStatus
+  averageRating: number
+  rating: ManagerRating
+  entity: string
+  level: ManagerLevel
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type ManagerColumnMap = {
+  employeeCode: string
+  name?: string
+  status?: string
+  averageRating?: string
+  rating?: string
+  entity?: string
+}
+
+export type ManagerImportResult = {
+  level: ManagerLevel
+  totalRows: number
+  imported: number
+  updated: number
+  skipped: number
+  errors: Array<{ line: number; message: string }>
+}
+
+export type CreateManagerPayload = {
+  employeeCode: string
+  name: string
+  status: ManagerStatus
+  averageRating: number
+  rating: ManagerRating
+  entity: string
+  level: ManagerLevel
+}
+
+export type UpdateManagerMetricsPayload = {
+  status?: ManagerStatus
+  averageRating?: number
+  rating?: ManagerRating
 }
 
 async function buildAuthHeaders(preferredIdToken?: string | null): Promise<HeadersInit> {
@@ -242,4 +296,110 @@ export async function downloadSurveyExport(
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(url)
+}
+
+export async function fetchManagers(
+  level?: ManagerLevel | 'all',
+  preferredIdToken?: string | null,
+): Promise<ManagerRecord[]> {
+  const query =
+    level && level !== 'all' ? `?level=${encodeURIComponent(level)}` : ''
+  const response = await fetch(`${API_SURVEY_ADMIN_MANAGERS_URL}${query}`, {
+    method: 'GET',
+    headers: await buildAuthHeaders(preferredIdToken),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to load managers.'))
+  }
+  const payload = body as { data?: ManagerRecord[] } | null
+  return Array.isArray(payload?.data) ? payload.data : []
+}
+
+export async function createManager(
+  payload: CreateManagerPayload,
+  preferredIdToken?: string | null,
+): Promise<ManagerRecord> {
+  const response = await fetch(API_SURVEY_ADMIN_MANAGERS_URL, {
+    method: 'POST',
+    headers: {
+      ...(await buildAuthHeaders(preferredIdToken)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to create manager.'))
+  }
+  const data = (body as { data?: ManagerRecord } | null)?.data
+  if (!data) {
+    throw new Error('Server did not return manager data.')
+  }
+  return data
+}
+
+export async function updateManagerMetrics(
+  id: string,
+  payload: UpdateManagerMetricsPayload,
+  preferredIdToken?: string | null,
+): Promise<ManagerRecord> {
+  const response = await fetch(apiSurveyAdminManagerUrl(id), {
+    method: 'PATCH',
+    headers: {
+      ...(await buildAuthHeaders(preferredIdToken)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to update manager.'))
+  }
+  const data = (body as { data?: ManagerRecord } | null)?.data
+  if (!data) {
+    throw new Error('Server did not return manager data.')
+  }
+  return data
+}
+
+export async function deleteManager(
+  id: string,
+  preferredIdToken?: string | null,
+): Promise<void> {
+  const response = await fetch(apiSurveyAdminManagerUrl(id), {
+    method: 'DELETE',
+    headers: await buildAuthHeaders(preferredIdToken),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to delete manager.'))
+  }
+}
+
+export async function importManagersCsv(
+  payload: {
+    csvText: string
+    columnMap: ManagerColumnMap
+    level: ManagerLevel
+  },
+  preferredIdToken?: string | null,
+): Promise<ManagerImportResult> {
+  const response = await fetch(API_SURVEY_ADMIN_MANAGERS_IMPORT_URL, {
+    method: 'POST',
+    headers: {
+      ...(await buildAuthHeaders(preferredIdToken)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, body, 'Failed to import managers.'))
+  }
+  const data = (body as { data?: ManagerImportResult } | null)?.data
+  if (!data) {
+    throw new Error('Server did not return import result.')
+  }
+  return data
 }

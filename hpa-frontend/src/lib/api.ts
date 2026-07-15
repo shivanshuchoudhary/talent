@@ -9,6 +9,7 @@ export const SURVEY_API_PATHS = {
   me: '/api/surveys/me',
   adminParticipants: '/api/surveys/admin/participants',
   adminParticipant: '/api/surveys/admin/participants',
+  adminManagers: '/api/surveys/admin/managers',
   adminUsers: '/api/surveys/admin/users',
   exportResponses: '/api/surveys/responses/export',
 } as const
@@ -70,6 +71,22 @@ export function apiSurveyAdminParticipantResetSurveyUrl(userId: string): string 
 
 /** GET — admin Excel export */
 export const API_SURVEY_EXPORT_URL = resolveUrl(SURVEY_API_PATHS.exportResponses)
+
+/** GET/POST — admin managers list / create */
+export const API_SURVEY_ADMIN_MANAGERS_URL = resolveUrl(
+  SURVEY_API_PATHS.adminManagers,
+)
+
+/** POST — admin managers CSV import */
+export const API_SURVEY_ADMIN_MANAGERS_IMPORT_URL = resolveUrl(
+  `${SURVEY_API_PATHS.adminManagers}/import`,
+)
+
+export function apiSurveyAdminManagerUrl(id: string): string {
+  return resolveUrl(
+    `${SURVEY_API_PATHS.adminManagers}/${encodeURIComponent(id)}`,
+  )
+}
 
 /** GET/POST — super admin: list / grant admin */
 export const API_SURVEY_ADMIN_USERS_URL = resolveUrl(SURVEY_API_PATHS.adminUsers)

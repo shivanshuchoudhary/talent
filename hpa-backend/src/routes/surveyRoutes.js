@@ -21,6 +21,13 @@ const {
   removeAdminUser
 } = require("../services/adminUsers");
 const { deleteParticipant, resetParticipantSurvey } = require("../services/adminParticipants");
+const {
+  listManagers,
+  createManager,
+  updateManagerMetrics,
+  deleteManager,
+  importManagersFromCsv
+} = require("../services/managers");
 
 const router = express.Router();
 
@@ -348,6 +355,106 @@ router.post("/admin/participants/:userId/reset-survey", requireAdmin, async (req
     });
     return res.status(status).json({
       message: error.message || "Failed to reset survey.",
+      error: error.message
+    });
+  }
+});
+
+router.get("/admin/managers", requireAdmin, async (req, res) => {
+  try {
+    const level = typeof req.query.level === "string" ? req.query.level.trim() : "";
+    const managers = await listManagers(level || undefined);
+    return res.status(200).json({ data: managers });
+  } catch (error) {
+    console.error("[Survey][GET] /admin/managers failed:", {
+      error: error.message
+    });
+    return res.status(500).json({
+      message: "Failed to fetch managers.",
+      error: error.message
+    });
+  }
+});
+
+router.post("/admin/managers/import", requireAdmin, async (req, res) => {
+  try {
+    const result = await importManagersFromCsv({
+      csvText: req.body?.csvText,
+      columnMap: req.body?.columnMap,
+      level: req.body?.level
+    });
+    return res.status(200).json({
+      message: "Managers import completed.",
+      data: result
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 500;
+    console.error("[Survey][POST] /admin/managers/import failed:", {
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to import managers.",
+      error: error.message
+    });
+  }
+});
+
+router.post("/admin/managers", requireAdmin, async (req, res) => {
+  try {
+    const created = await createManager(req.body);
+    return res.status(201).json({
+      message: "Manager created.",
+      data: created
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 500;
+    console.error("[Survey][POST] /admin/managers failed:", {
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to create manager.",
+      error: error.message
+    });
+  }
+});
+
+router.patch("/admin/managers/:id", requireAdmin, async (req, res) => {
+  const id = req.params.id ?? "";
+  try {
+    const updated = await updateManagerMetrics(id, req.body);
+    return res.status(200).json({
+      message: "Manager updated.",
+      data: updated
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 500;
+    console.error("[Survey][PATCH] /admin/managers failed:", {
+      id,
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to update manager.",
+      error: error.message
+    });
+  }
+});
+
+router.delete("/admin/managers/:id", requireAdmin, async (req, res) => {
+  const id = req.params.id ?? "";
+  try {
+    const result = await deleteManager(id);
+    return res.status(200).json({
+      message: "Manager deleted.",
+      data: result
+    });
+  } catch (error) {
+    const status = error.statusCode ?? 500;
+    console.error("[Survey][DELETE] /admin/managers failed:", {
+      id,
+      error: error.message
+    });
+    return res.status(status).json({
+      message: error.message || "Failed to delete manager.",
       error: error.message
     });
   }
