@@ -9,6 +9,7 @@ const MANAGER_STATUS_VALUES = Object.values(MANAGER_STATUSES);
 const MANAGER_RATINGS = {
   A: "A",
   B: "B",
+  C: "C",
   DASH: "-"
 };
 

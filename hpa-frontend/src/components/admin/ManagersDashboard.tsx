@@ -39,7 +39,7 @@ const STATUS_OPTIONS: Array<{ value: ManagerStatus; label: string }> = [
   { value: 'in_progress', label: 'in progress' },
 ]
 
-const RATING_OPTIONS: ManagerRating[] = ['A', 'B', '-']
+const RATING_OPTIONS: ManagerRating[] = ['A', 'B', 'C', '-']
 const LEVEL_OPTIONS: ManagerLevel[] = ['n-2', 'n-3']
 
 const IMPORT_FIELDS: Array<{ key: keyof ManagerColumnMap; label: string; required?: boolean }> =
@@ -67,31 +67,127 @@ function statusVariant(
 }
 
 function parseCsvHeaders(csvText: string): string[] {
-  const firstLine = csvText.replace(/^\uFEFF/, '').split(/\r?\n/)[0] ?? ''
-  const cells: string[] = []
-  let current = ''
-  let inQuotes = false
-  for (let i = 0; i < firstLine.length; i += 1) {
-    const char = firstLine[i]
-    const next = firstLine[i + 1]
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"'
-        i += 1
-      } else {
-        inQuotes = !inQuotes
+  const { headers } = parseCsv(csvText)
+  return headers
+}
+
+function parseCsv(csvText: string): { headers: string[]; rows: string[][] } {
+  const normalized = csvText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const lines = normalized.split('\n').filter((line) => line.trim().length > 0)
+  if (lines.length === 0) return { headers: [], rows: [] }
+
+  const parseLine = (line: string) => {
+    const cells: string[] = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i]
+      const next = line[i + 1]
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          current += '"'
+          i += 1
+        } else {
+          inQuotes = !inQuotes
+        }
+        continue
       }
-      continue
+      if (char === ',' && !inQuotes) {
+        cells.push(current.trim())
+        current = ''
+        continue
+      }
+      current += char
     }
-    if (char === ',' && !inQuotes) {
-      cells.push(current.trim())
-      current = ''
-      continue
-    }
-    current += char
+    cells.push(current.trim())
+    return cells
   }
-  cells.push(current.trim())
-  return cells.filter(Boolean)
+
+  const headers = parseLine(lines[0] ?? '')
+  const rows = lines.slice(1).map(parseLine)
+  return { headers, rows }
+}
+
+function isBlankCell(raw: string) {
+  const value = raw.replace(/\u00a0/g, ' ').trim()
+  if (!value) return true
+  const upper = value.toUpperCase()
+  return (
+    value === '-' ||
+    value === '–' ||
+    value === '—' ||
+    upper === 'N/A' ||
+    upper === 'NA' ||
+    upper === '.'
+  )
+}
+
+type ImportPreview = {
+  toAdd: Array<{ line: number; employeeCode: string; name: string }>
+  toUpdate: Array<{
+    line: number
+    employeeCode: string
+    name: string
+    existingName: string
+  }>
+  toSkip: Array<{ line: number; reason: string }>
+}
+
+function buildImportPreview(
+  csvText: string,
+  columnMap: ManagerColumnMap,
+  existing: ManagerRecord[],
+): ImportPreview {
+  const { headers, rows } = parseCsv(csvText)
+  const headerIndex = new Map(
+    headers.map((header, index) => [header.trim().toLowerCase(), index]),
+  )
+  const codeIdx = headerIndex.get((columnMap.employeeCode ?? '').trim().toLowerCase())
+  const nameIdx = columnMap.name
+    ? headerIndex.get(columnMap.name.trim().toLowerCase())
+    : undefined
+
+  const existingByCode = new Map(
+    existing.map((row) => [row.employeeCode.trim().toLowerCase(), row]),
+  )
+
+  const toAdd: ImportPreview['toAdd'] = []
+  const toUpdate: ImportPreview['toUpdate'] = []
+  const toSkip: ImportPreview['toSkip'] = []
+
+  if (codeIdx === undefined) {
+    return {
+      toAdd,
+      toUpdate,
+      toSkip: [{ line: 1, reason: 'Emp id column not found in CSV headers.' }],
+    }
+  }
+
+  rows.forEach((row, rowIndex) => {
+    const line = rowIndex + 2
+    const employeeCode = String(row[codeIdx] ?? '').trim()
+    if (isBlankCell(employeeCode)) {
+      toSkip.push({ line, reason: 'Missing emp id (empty or -)' })
+      return
+    }
+    const name =
+      nameIdx !== undefined
+        ? String(row[nameIdx] ?? '').trim() || employeeCode
+        : employeeCode
+    const existingRow = existingByCode.get(employeeCode.toLowerCase())
+    if (existingRow) {
+      toUpdate.push({
+        line,
+        employeeCode,
+        name,
+        existingName: existingRow.name,
+      })
+    } else {
+      toAdd.push({ line, employeeCode, name })
+    }
+  })
+
+  return { toAdd, toUpdate, toSkip }
 }
 
 const emptyCreateForm = {
@@ -136,6 +232,7 @@ export function ManagersDashboard() {
   })
   const [isImporting, setIsImporting] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
 
   const loadManagers = useCallback(async () => {
     setIsLoading(true)
@@ -296,6 +393,7 @@ export function ManagersDashboard() {
     const headers = parseCsvHeaders(text)
     setCsvText(text)
     setCsvHeaders(headers)
+    setImportPreview(null)
     setColumnMap({
       employeeCode: headers[0] ?? '',
       name: '',
@@ -307,32 +405,47 @@ export function ManagersDashboard() {
     })
   }
 
-  const handleImport = async (event: FormEvent) => {
+  const cleanedColumnMap = (): ManagerColumnMap | null => {
+    if (!columnMap.employeeCode) return null
+    const cleanedMap: ManagerColumnMap = { employeeCode: columnMap.employeeCode }
+    for (const field of IMPORT_FIELDS) {
+      if (field.key === 'employeeCode') continue
+      const value = columnMap[field.key]
+      if (value) cleanedMap[field.key] = value
+    }
+    return cleanedMap
+  }
+
+  const handlePreviewImport = (event: FormEvent) => {
     event.preventDefault()
     if (!csvText.trim()) {
       setError('Choose a CSV file first.')
       return
     }
-    if (!columnMap.employeeCode) {
+    const cleanedMap = cleanedColumnMap()
+    if (!cleanedMap) {
       setError('Map the Emp id column before importing.')
       return
     }
+    setError(null)
+    setImportPreview(buildImportPreview(csvText, cleanedMap, managers))
+  }
+
+  const handleConfirmImport = async () => {
+    const cleanedMap = cleanedColumnMap()
+    if (!cleanedMap || !csvText.trim()) return
+
     setIsImporting(true)
     setError(null)
     setSuccess(null)
     try {
-      const cleanedMap: ManagerColumnMap = { employeeCode: columnMap.employeeCode }
-      for (const field of IMPORT_FIELDS) {
-        if (field.key === 'employeeCode') continue
-        const value = columnMap[field.key]
-        if (value) cleanedMap[field.key] = value
-      }
       const result = await importManagersCsv({
         csvText,
         columnMap: cleanedMap,
         level: importLevel,
       })
       setImportOpen(false)
+      setImportPreview(null)
       setCsvText('')
       setCsvHeaders([])
       setSuccess(
@@ -755,15 +868,22 @@ export function ManagersDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          setImportOpen(open)
+          if (!open) setImportPreview(null)
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import managers CSV</DialogTitle>
             <DialogDescription>
-              Map CSV columns to manager fields, then choose one level for the whole file.
+              Map columns, preview who will be added or updated, then confirm import.
+              Empty or "-" for entity/function is allowed (stored as Unknown).
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-3" onSubmit={(event) => void handleImport(event)}>
+          <form className="space-y-3" onSubmit={handlePreviewImport}>
             <div className="space-y-1.5">
               <Label htmlFor="csv-file">CSV file</Label>
               <Input
@@ -783,7 +903,10 @@ export function ManagersDashboard() {
                 id="import-level"
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                 value={importLevel}
-                onChange={(event) => setImportLevel(event.target.value as ManagerLevel)}
+                onChange={(event) => {
+                  setImportLevel(event.target.value as ManagerLevel)
+                  setImportPreview(null)
+                }}
               >
                 {LEVEL_OPTIONS.map((level) => (
                   <option key={level} value={level}>
@@ -805,12 +928,13 @@ export function ManagersDashboard() {
                     <select
                       className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
                       value={columnMap[field.key] ?? ''}
-                      onChange={(event) =>
+                      onChange={(event) => {
                         setColumnMap((prev) => ({
                           ...prev,
                           [field.key]: event.target.value,
                         }))
-                      }
+                        setImportPreview(null)
+                      }}
                       required={field.required}
                     >
                       <option value="">{field.required ? 'Select column…' : 'Skip'}</option>
@@ -825,14 +949,83 @@ export function ManagersDashboard() {
               </div>
             ) : null}
 
-            <DialogFooter>
+            {importPreview ? (
+              <div className="space-y-3 rounded-md border p-3 text-sm">
+                <p className="font-medium">
+                  Preview · {importPreview.toAdd.length} new ·{' '}
+                  {importPreview.toUpdate.length} update · {importPreview.toSkip.length}{' '}
+                  skip
+                </p>
+
+                {importPreview.toUpdate.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-amber-800">
+                      Will update (same emp id already in table)
+                    </p>
+                    <ul className="max-h-36 space-y-1 overflow-y-auto rounded border bg-amber-50/60 p-2 text-xs">
+                      {importPreview.toUpdate.map((row) => (
+                        <li key={`u-${row.line}-${row.employeeCode}`}>
+                          <span className="font-mono">{row.employeeCode}</span> — {row.name}
+                          {row.existingName !== row.name
+                            ? ` (was ${row.existingName})`
+                            : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {importPreview.toAdd.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-emerald-800">Will add (new)</p>
+                    <ul className="max-h-28 space-y-1 overflow-y-auto rounded border bg-emerald-50/60 p-2 text-xs">
+                      {importPreview.toAdd.slice(0, 40).map((row) => (
+                        <li key={`a-${row.line}-${row.employeeCode}`}>
+                          <span className="font-mono">{row.employeeCode}</span> — {row.name}
+                        </li>
+                      ))}
+                      {importPreview.toAdd.length > 40 ? (
+                        <li>…and {importPreview.toAdd.length - 40} more</li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {importPreview.toSkip.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-destructive">Will skip</p>
+                    <ul className="max-h-28 space-y-1 overflow-y-auto rounded border bg-destructive/5 p-2 text-xs">
+                      {importPreview.toSkip.slice(0, 20).map((row) => (
+                        <li key={`s-${row.line}`}>
+                          Line {row.line}: {row.reason}
+                        </li>
+                      ))}
+                      {importPreview.toSkip.length > 20 ? (
+                        <li>…and {importPreview.toSkip.length - 20} more</li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <DialogFooter className="gap-2 sm:justify-between">
               <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isImporting || !csvText}>
-                {isImporting ? <Loader2 className="size-4 animate-spin" /> : null}
-                Import
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" variant="secondary" disabled={!csvText}>
+                  Preview
+                </Button>
+                <Button
+                  type="button"
+                  disabled={isImporting || !importPreview}
+                  onClick={() => void handleConfirmImport()}
+                >
+                  {isImporting ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Confirm import
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>

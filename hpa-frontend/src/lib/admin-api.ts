@@ -73,7 +73,7 @@ export type AdminParticipant = {
 }
 
 export type ManagerStatus = 'completed' | 'not_completed' | 'in_progress'
-export type ManagerRating = 'A' | 'B' | '-'
+export type ManagerRating = 'A' | 'B' | 'C' | '-'
 export type ManagerLevel = 'n-2' | 'n-3'
 
 export type ManagerRecord = {

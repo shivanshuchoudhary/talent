@@ -16,9 +16,34 @@ function normalizeKey(value) {
     .replace(/\s+/g, " ");
 }
 
+function isBlankCell(raw) {
+  const value = String(raw ?? "")
+    .replace(/\u00a0/g, " ")
+    .trim();
+  if (!value) return true;
+  const upper = value.toUpperCase();
+  return (
+    value === "-" ||
+    value === "–" ||
+    value === "—" ||
+    upper === "N/A" ||
+    upper === "NA" ||
+    upper === "."
+  );
+}
+
+function normalizeOptionalText(raw, fallback) {
+  if (isBlankCell(raw)) return fallback;
+  return String(raw).replace(/\u00a0/g, " ").trim();
+}
+
 function normalizeStatus(raw) {
+  if (isBlankCell(raw)) {
+    return MANAGER_STATUSES.NOT_COMPLETED;
+  }
+
   const value = normalizeKey(raw);
-  if (!value) return null;
+  if (!value) return MANAGER_STATUSES.NOT_COMPLETED;
 
   if (
     value === "in progress" ||
@@ -60,7 +85,7 @@ function normalizeRating(raw) {
     .replace(/\u00a0/g, " ")
     .trim()
     .toUpperCase();
-  if (value === "A" || value === "B" || value === "-") {
+  if (value === "A" || value === "B" || value === "C" || value === "-") {
     return value;
   }
   if (
@@ -165,7 +190,7 @@ function validateCreatePayload(payload) {
     throw error;
   }
   if (!rating || !MANAGER_RATING_VALUES.includes(rating)) {
-    const error = new Error('rating must be "A", "B", or "-".');
+    const error = new Error('rating must be "A", "B", "C", or "-".');
     error.statusCode = 400;
     throw error;
   }
@@ -238,7 +263,7 @@ async function updateManagerMetrics(id, payload) {
   if (payload?.rating !== undefined) {
     const rating = normalizeRating(payload.rating);
     if (!rating || !MANAGER_RATING_VALUES.includes(rating)) {
-      const error = new Error('rating must be "A", "B", or "-".');
+      const error = new Error('rating must be "A", "B", "C", or "-".');
       error.statusCode = 400;
       throw error;
     }
@@ -335,19 +360,37 @@ async function importManagersFromCsv({ csvText, columnMap, level }) {
 
   rows.forEach((row, rowIndex) => {
     const lineNumber = rowIndex + 2;
-    const employeeCode = cellAt(row, indexes.employeeCode);
-    if (!employeeCode) {
+    const employeeCodeRaw = cellAt(row, indexes.employeeCode);
+    if (isBlankCell(employeeCodeRaw)) {
       skipped += 1;
-      errors.push({ line: lineNumber, message: "Missing employeeCode." });
+      errors.push({
+        line: lineNumber,
+        message: "Missing employeeCode (empty or -)."
+      });
       return;
     }
+    const employeeCode = employeeCodeRaw;
 
-    const name = cellAt(row, indexes.name);
-    const entity = cellAt(row, indexes.entity);
-    const functionName = cellAt(row, indexes.function);
-    const statusRaw = cellAt(row, indexes.status);
-    const ratingRaw = cellAt(row, indexes.rating);
-    const averageRaw = cellAt(row, indexes.averageRating);
+    const name = normalizeOptionalText(
+      indexes.name !== undefined ? cellAt(row, indexes.name) : "",
+      employeeCode
+    );
+    const entity = normalizeOptionalText(
+      indexes.entity !== undefined ? cellAt(row, indexes.entity) : "",
+      "Unknown"
+    );
+    const functionName = normalizeOptionalText(
+      indexes.function !== undefined ? cellAt(row, indexes.function) : "",
+      "Unknown"
+    );
+    const statusRaw =
+      indexes.status !== undefined ? cellAt(row, indexes.status) : "";
+    const ratingRaw =
+      indexes.rating !== undefined ? cellAt(row, indexes.rating) : "";
+    const averageRaw =
+      indexes.averageRating !== undefined
+        ? cellAt(row, indexes.averageRating)
+        : "";
 
     const status =
       indexes.status !== undefined
@@ -384,46 +427,23 @@ async function importManagersFromCsv({ csvText, columnMap, level }) {
       });
       return;
     }
-    if (indexes.name !== undefined && !name) {
-      skipped += 1;
-      errors.push({ line: lineNumber, message: "Missing name." });
-      return;
-    }
-    if (indexes.entity !== undefined && !entity) {
-      skipped += 1;
-      errors.push({ line: lineNumber, message: "Missing entity." });
-      return;
-    }
-    if (indexes.function !== undefined && !functionName) {
-      skipped += 1;
-      errors.push({ line: lineNumber, message: "Missing function." });
-      return;
-    }
 
     const setDoc = {
       employeeCode,
       level,
       status: status || MANAGER_STATUSES.NOT_COMPLETED,
       averageRating: averageRating ?? 0,
-      rating: rating || "-"
+      rating: rating || "-",
+      name,
+      entity,
+      function: functionName
     };
-    if (indexes.name !== undefined) setDoc.name = name;
-    if (indexes.entity !== undefined) setDoc.entity = entity;
-    if (indexes.function !== undefined) setDoc.function = functionName;
-
-    const setOnInsert = {};
-    if (indexes.name === undefined) setOnInsert.name = employeeCode;
-    if (indexes.entity === undefined) setOnInsert.entity = "Unknown";
-    if (indexes.function === undefined) setOnInsert.function = "Unknown";
 
     ops.push({
       updateOne: {
         filter: { employeeCode },
         update: {
-          $set: setDoc,
-          ...(Object.keys(setOnInsert).length > 0
-            ? { $setOnInsert: setOnInsert }
-            : {})
+          $set: setDoc
         },
         upsert: true
       }
