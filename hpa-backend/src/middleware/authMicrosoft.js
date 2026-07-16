@@ -60,6 +60,36 @@ function extractName(payload) {
   return typeof raw === "string" ? raw.trim() : "";
 }
 
+/** Safe summary of SSO claims for PM2 logs (no raw token). */
+function summarizeSsoClaims(auth) {
+  const claims = auth?.claims && typeof auth.claims === "object" ? auth.claims : {};
+  return {
+    email: auth?.email || null,
+    name: auth?.name || null,
+    oid: auth?.oid || null,
+    preferred_username: claims.preferred_username ?? null,
+    upn: claims.upn ?? null,
+    unique_name: claims.unique_name ?? null,
+    given_name: claims.given_name ?? null,
+    family_name: claims.family_name ?? null,
+    tid: claims.tid ?? null,
+    aud: claims.aud ?? null,
+    azp: claims.azp ?? null,
+    iss: claims.iss ?? null,
+    roles: claims.roles ?? null,
+    groups: Array.isArray(claims.groups) ? `array(${claims.groups.length})` : claims.groups ?? null,
+    // Optional claims only appear if enabled in Azure App Registration → Token configuration
+    jobTitle: claims.jobTitle ?? null,
+    department: claims.department ?? null,
+    officeLocation: claims.officeLocation ?? null,
+    claimKeys: Object.keys(claims).sort()
+  };
+}
+
+function logSsoLogin(source, auth) {
+  console.log(`[Auth][SSO] ${source}:`, summarizeSsoClaims(auth));
+}
+
 function isEmailDomainAllowed(email) {
   if (azureAuth.allowedEmailDomains.length === 0) {
     return true;
@@ -289,5 +319,7 @@ module.exports = {
   requireMicrosoftAuth,
   requireAdmin,
   requireSuperAdmin,
-  verifyBearerToken
+  verifyBearerToken,
+  summarizeSsoClaims,
+  logSsoLogin
 };

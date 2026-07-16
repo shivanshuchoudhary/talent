@@ -4,7 +4,8 @@ const User = require("../models/User");
 const {
   requireMicrosoftAuth,
   requireAdmin,
-  requireSuperAdmin
+  requireSuperAdmin,
+  logSsoLogin
 } = require("../middleware/authMicrosoft");
 const { resolveSurveyUser, loadSurveyUserDocument } = require("../middleware/resolveSurveyUser");
 const azureAuth = require("../config/azureAuth");
@@ -75,6 +76,9 @@ router.post("/users/session", resolveSurveyUser, async (req, res) => {
     name: payload?.name ?? null,
     isProfileSubmission: hasCompleteProfilePayload(payload)
   });
+  if (req.auth && !req.auth.bypassed) {
+    logSsoLogin("POST /users/session", req.auth);
+  }
 
   try {
     if (!hasCompleteProfilePayload(payload)) {
@@ -279,6 +283,10 @@ router.get("/me", async (req, res) => {
     return res.status(401).json({
       message: "Authenticated user email is required."
     });
+  }
+
+  if (req.auth && !req.auth.bypassed) {
+    logSsoLogin("GET /me", req.auth);
   }
 
   try {
