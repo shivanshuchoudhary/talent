@@ -11,6 +11,8 @@ export type ManagerDashboardStats = {
   statusBreakdown: CountSlice[]
   ratingBreakdown: CountSlice[]
   levelBreakdown: CountSlice[]
+  completedByLevel: { 'n-2': number; 'n-3': number }
+  totalByLevel: { 'n-2': number; 'n-3': number }
 }
 
 export type ManagerSegmentDimension = 'entity' | 'function'
@@ -87,6 +89,15 @@ export function computeManagerDashboardStats(
       ? 0
       : managers.reduce((sum, m) => sum + m.averageRating, 0) / managers.length
 
+  const completedN2 = managers.filter(
+    (m) => m.level === 'n-2' && m.status === 'completed',
+  ).length
+  const completedN3 = managers.filter(
+    (m) => m.level === 'n-3' && m.status === 'completed',
+  ).length
+  const totalN2 = managers.filter((m) => m.level === 'n-2').length
+  const totalN3 = managers.filter((m) => m.level === 'n-3').length
+
   return {
     total,
     completed,
@@ -97,6 +108,8 @@ export function computeManagerDashboardStats(
     statusBreakdown: countBy(managers, (m) => statusDisplay(m.status), STATUS_COLORS),
     ratingBreakdown: countBy(managers, (m) => m.rating, RATING_COLORS),
     levelBreakdown: countBy(managers, (m) => m.level, LEVEL_COLORS),
+    completedByLevel: { 'n-2': completedN2, 'n-3': completedN3 },
+    totalByLevel: { 'n-2': totalN2, 'n-3': totalN3 },
   }
 }
 

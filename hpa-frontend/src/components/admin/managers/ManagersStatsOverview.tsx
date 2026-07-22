@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ManagerDashboardStats } from './manager-analytics'
+import { ManagersLevelCompletionKpi } from './ManagersLevelCompletionKpi'
 import { ChartLegend, DonutChart } from '#/components/admin/AdminChartPrimitives'
 import { Layers, Star, Users } from 'lucide-react'
 import { cn } from '#/lib/utils'
@@ -29,7 +30,7 @@ type ManagersStatsOverviewProps = {
 
 export function ManagersStatsOverview({ stats }: ManagersStatsOverviewProps) {
   return (
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <OverviewCard>
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Users className="size-4" />
@@ -45,6 +46,8 @@ export function ManagersStatsOverview({ stats }: ManagersStatsOverviewProps) {
             'No levels yet'}
         </p>
       </OverviewCard>
+
+      <ManagersLevelCompletionKpi stats={stats} />
 
       <OverviewCard>
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

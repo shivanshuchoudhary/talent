@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { ManagerDashboardStats } from './manager-analytics'
 import { ChartLegend, DonutChart } from '#/components/admin/AdminChartPrimitives'
-import { BarChart3, GraduationCap } from 'lucide-react'
+import { BarChart3, GraduationCap, User } from 'lucide-react'
 
 function ChartCard({
   title,
@@ -69,7 +69,8 @@ export function ManagersInsightsPanel({ stats }: ManagersInsightsPanelProps) {
           />
           <ChartLegend slices={stats.levelBreakdown} />
         </div>
-      </ChartCard>
+      </ChartCard>      
+      
     </div>
   )
 }
